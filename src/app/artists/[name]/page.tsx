@@ -22,7 +22,7 @@ function pickRandom<T>(items: T[]): T | null {
 
 export default function ArtistPage() {
   const params = useParams<{ name: string }>();
-  const artistName = decodeURIComponent(params.name || "");
+  const artistName = decodeURIComponent(params?.name || "");
 
   const [records, setRecords] = useState<ArtistRecord[]>([]);
   const [loading, setLoading] = useState(true);

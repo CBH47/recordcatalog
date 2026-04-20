@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { TopPageSelector } from "../../components/TopPageSelector";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
@@ -45,7 +45,7 @@ function hasUsableImage(imageUrl?: string): boolean {
   return clean.startsWith("http://") || clean.startsWith("https://");
 }
 
-export default function RandomPickerPage() {
+function RandomPickerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -53,12 +53,12 @@ export default function RandomPickerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [genreParam, setGenreParam] = useState(searchParams.get("genre") || "");
-  const [mode, setMode] = useState<FilterMode>(searchParams.get("mode") === "exclude" ? "exclude" : "only");
-  const [subgenreParam, setSubgenreParam] = useState(searchParams.get("subgenre") || "");
-  const [onlyOnWall, setOnlyOnWall] = useState(searchParams.get("onWall") === "1");
-  const [excludeOutForDay, setExcludeOutForDay] = useState(searchParams.get("excludeOut") === "1");
-  const [requireCoverArt, setRequireCoverArt] = useState(searchParams.get("cover") === "1");
+  const [genreParam, setGenreParam] = useState(searchParams?.get("genre") || "");
+  const [mode, setMode] = useState<FilterMode>(searchParams?.get("mode") === "exclude" ? "exclude" : "only");
+  const [subgenreParam, setSubgenreParam] = useState(searchParams?.get("subgenre") || "");
+  const [onlyOnWall, setOnlyOnWall] = useState(searchParams?.get("onWall") === "1");
+  const [excludeOutForDay, setExcludeOutForDay] = useState(searchParams?.get("excludeOut") === "1");
+  const [requireCoverArt, setRequireCoverArt] = useState(searchParams?.get("cover") === "1");
 
   const [avoidRecent, setAvoidRecent] = useState(true);
   const [recentIds, setRecentIds] = useState<number[]>([]);
@@ -130,7 +130,7 @@ export default function RandomPickerPage() {
   }, []);
 
   useEffect(() => {
-    const current = searchParams.toString();
+    const current = searchParams?.toString() || "";
     const params = new URLSearchParams(current);
 
     if (genreParam) params.set("genre", genreParam);
@@ -154,7 +154,7 @@ export default function RandomPickerPage() {
     if (next !== current) {
       router.replace(`/random?${next}`);
     }
-  }, [genreParam, subgenreParam, mode, onlyOnWall, excludeOutForDay, requireCoverArt, router]);
+  }, [genreParam, subgenreParam, mode, onlyOnWall, excludeOutForDay, requireCoverArt, router, searchParams]);
 
   const genres = useMemo(() => {
     const unique = Array.from(new Set(records.map((r) => r.genre).filter(Boolean)));
@@ -451,5 +451,13 @@ export default function RandomPickerPage() {
         </aside>
       </div>
     </main>
+  );
+}
+
+export default function RandomPickerPage() {
+  return (
+    <Suspense fallback={<main className="page-shell py-8 subtle">Loading random picker...</main>}>
+      <RandomPickerContent />
+    </Suspense>
   );
 }
