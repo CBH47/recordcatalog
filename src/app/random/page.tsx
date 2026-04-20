@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { TopPageSelector } from "../../components/TopPageSelector";
+import { addListeningEntry } from "../../lib/collectionExtras";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -66,6 +67,7 @@ function RandomPickerContent() {
 
   const [queueSize, setQueueSize] = useState(5);
   const [queue, setQueue] = useState<RandomRecord[]>([]);
+  const [historyMessage, setHistoryMessage] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -226,6 +228,16 @@ function RandomPickerContent() {
     } catch {
       // Ignore storage failures.
     }
+  };
+
+  const handleLogPlay = () => {
+    if (!picked) return;
+    addListeningEntry({
+      recordId: picked.id,
+      title: picked.title,
+      artist: picked.artists.join(", "),
+    });
+    setHistoryMessage(`Logged play for "${picked.title}".`);
   };
 
   return (
@@ -414,7 +426,14 @@ function RandomPickerContent() {
                         Open Discogs
                       </a>
                     )}
+                    <button
+                      onClick={handleLogPlay}
+                      className="pill-nav"
+                    >
+                      Log play
+                    </button>
                   </div>
+                  {historyMessage && <p className="text-xs subtle mt-2">{historyMessage}</p>}
                 </div>
               </div>
             </div>

@@ -17,6 +17,11 @@ type BarcodePreview = {
   uri: string | null;
 };
 
+type BatchItem = {
+  preview: BarcodePreview;
+  cubby: number | null;
+};
+
 type BarcodeDetectorLike = {
   detect: (input: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>;
 };
@@ -43,6 +48,9 @@ export default function ScannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<BarcodePreview | null>(null);
   const [addedMessage, setAddedMessage] = useState<string | null>(null);
+  const [batchQueue, setBatchQueue] = useState<BatchItem[]>([]);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchMessage, setBatchMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setSupportsBarcodeDetector(typeof window !== "undefined" && Boolean(window.BarcodeDetector));
@@ -178,6 +186,69 @@ export default function ScannerPage() {
     }
   };
 
+  const handleAddToBatch = () => {
+    if (!preview) return;
+
+    const parsedCubby = cubby.trim() === "" ? null : Number.parseInt(cubby, 10);
+    const normalizedCubby = Number.isNaN(parsedCubby as number) ? null : parsedCubby;
+
+    setBatchQueue((prev) => {
+      if (prev.some((item) => item.preview.discogsId === preview.discogsId)) {
+        setBatchMessage(`"${preview.title}" is already in the batch queue.`);
+        return prev;
+      }
+
+      setBatchMessage(`Queued "${preview.title}" for batch add.`);
+      return [...prev, { preview, cubby: normalizedCubby }];
+    });
+  };
+
+  const handleRemoveFromBatch = (discogsId: number) => {
+    setBatchQueue((prev) => prev.filter((item) => item.preview.discogsId !== discogsId));
+  };
+
+  const handleCommitBatch = async () => {
+    if (!batchQueue.length) return;
+
+    setBatchLoading(true);
+    setError(null);
+    setBatchMessage(null);
+
+    let success = 0;
+    const failures: string[] = [];
+
+    for (const item of batchQueue) {
+      try {
+        const res = await fetch("/api/add-record-from-discogs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            discogsId: item.preview.discogsId,
+            cubby: item.cubby,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error || "Batch add failed");
+        }
+
+        success += 1;
+      } catch (err: any) {
+        failures.push(`${item.preview.title}: ${err?.message || "Failed"}`);
+      }
+    }
+
+    if (failures.length) {
+      setBatchMessage(`Batch finished with ${success} success, ${failures.length} failed. ${failures[0]}`);
+    } else {
+      setBatchMessage(`Batch added ${success} record(s) successfully.`);
+      setBatchQueue([]);
+    }
+
+    setBatchLoading(false);
+  };
+
   return (
     <main className="flex flex-col flex-1 page-shell fade-in">
       <div className="hero-card px-4 py-5 md:px-6 md:py-6">
@@ -264,6 +335,13 @@ export default function ScannerPage() {
           >
             {addLoading ? "Adding..." : "Add record from preview"}
           </button>
+          <button
+            onClick={handleAddToBatch}
+            disabled={!preview}
+            className="mt-2 w-full btn btn-secondary"
+          >
+            Add preview to batch queue
+          </button>
           <p className="text-xs subtle mt-2">
             Ordering is auto-computed globally by genre, artist key, then album title.
           </p>
@@ -272,6 +350,7 @@ export default function ScannerPage() {
 
       {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
       {addedMessage && <div className="mt-4 text-sm text-green-300">{addedMessage}</div>}
+      {batchMessage && <div className="mt-2 text-sm subtle">{batchMessage}</div>}
 
       {preview && (
         <section className="mt-6 panel p-4">
@@ -300,6 +379,43 @@ export default function ScannerPage() {
           </div>
         </section>
       )}
+
+      <section className="mt-6 panel p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Batch Review Queue</h2>
+            <p className="text-xs subtle mt-1">Queue multiple scans and commit in one action.</p>
+          </div>
+          <button
+            onClick={handleCommitBatch}
+            disabled={!batchQueue.length || batchLoading}
+            className="btn btn-primary"
+          >
+            {batchLoading ? "Committing..." : `Commit batch (${batchQueue.length})`}
+          </button>
+        </div>
+
+        {batchQueue.length === 0 ? (
+          <p className="text-sm subtle mt-3">No records in queue yet. Lookup a record and click Add preview to batch queue.</p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {batchQueue.map((item) => (
+              <li key={item.preview.discogsId} className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium">{item.preview.title}</p>
+                  <p className="text-sm subtle">{item.preview.artists.join(", ") || "Unknown artist"}</p>
+                  <p className="text-xs subtle mt-1">
+                    Cubby: {item.cubby === null ? "Unassigned" : item.cubby} | Discogs ID: {item.preview.discogsId}
+                  </p>
+                </div>
+                <button className="btn btn-secondary" onClick={() => handleRemoveFromBatch(item.preview.discogsId)}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

@@ -157,6 +157,30 @@ h3,
   animation: fade-in-up 360ms ease-out;
 }
 
+.chip-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 60%, #ffffff 40%) color-mix(in srgb, var(--panel-soft) 88%, #000 12%);
+}
+
+.chip-scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+
+.chip-scrollbar::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-soft) 88%, #000 12%);
+}
+
+.chip-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, #000 30%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, #ffffff 30%), color-mix(in srgb, var(--accent-soft) 86%, #000 14%));
+}
+
+.chip-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 78%, #ffffff 22%), color-mix(in srgb, var(--accent-soft) 78%, #000 22%));
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
