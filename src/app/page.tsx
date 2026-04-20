@@ -14,6 +14,8 @@ export default function Home() {
   const [discogsData, setDiscogsData] = useState<any | null>(null);
   const [discogsLoading, setDiscogsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [cubbyInput, setCubbyInput] = useState("");
+  const [cubbySaving, setCubbySaving] = useState(false);
   const [orderingCheckLoading, setOrderingCheckLoading] = useState(false);
   const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
   const [showOrderingConfirm, setShowOrderingConfirm] = useState(false);
@@ -154,6 +156,7 @@ export default function Home() {
 
   const handleRecordClick = async (record: Record) => {
     setSelected(record);
+    setCubbyInput(record.cubby !== null && record.cubby !== undefined ? String(record.cubby) : "");
     setDiscogsData(null);
     if (record.discogs_id) {
       setDiscogsLoading(true);
@@ -165,6 +168,40 @@ export default function Home() {
         setDiscogsData({ error: 'Failed to fetch Discogs data' });
       }
       setDiscogsLoading(false);
+    }
+  };
+
+  const handleSaveModalCubby = async () => {
+    if (!selected) return;
+
+    const parsed = Number.parseInt(cubbyInput.trim(), 10);
+    if (Number.isNaN(parsed)) {
+      setOrderingMessage("Enter a valid cubby number.");
+      return;
+    }
+
+    setCubbySaving(true);
+    setOrderingMessage(null);
+
+    try {
+      const res = await fetch('/api/updateCubby', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId: selected.id, cubby: parsed }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to update cubby');
+      }
+
+      setRecords((prev) => prev.map((rec) => (rec.id === selected.id ? { ...rec, cubby: parsed } : rec)));
+      setSelected((prev) => (prev ? { ...prev, cubby: parsed } : prev));
+      setOrderingMessage(`Updated cubby to ${parsed}.`);
+    } catch (err: any) {
+      setOrderingMessage(err?.message || 'Failed to update cubby');
+    } finally {
+      setCubbySaving(false);
     }
   };
 
@@ -255,6 +292,24 @@ export default function Home() {
             <div className="mb-2 text-xs subtle">{selected.genre}</div>
             <div className="mb-3 text-sm subtle">
               Cubby: {selected.cubby ?? "Unassigned"}
+            </div>
+            <div className="mb-4 flex items-end gap-2">
+              <div>
+                <label className="block text-xs subtle mb-1">Set cubby</label>
+                <input
+                  value={cubbyInput}
+                  onChange={(e) => setCubbyInput(e.target.value)}
+                  placeholder="e.g. 4"
+                  className="field w-28"
+                />
+              </div>
+              <button
+                onClick={handleSaveModalCubby}
+                disabled={cubbySaving}
+                className="btn btn-secondary"
+              >
+                {cubbySaving ? "Saving..." : "Save cubby"}
+              </button>
             </div>
             <div className="mb-3 flex flex-wrap gap-2">
               {selected.genre && (
