@@ -14,33 +14,92 @@ export default function Home() {
   const [discogsData, setDiscogsData] = useState<any | null>(null);
   const [discogsLoading, setDiscogsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [orderingCheckLoading, setOrderingCheckLoading] = useState(false);
+  const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
+  const [showOrderingConfirm, setShowOrderingConfirm] = useState(false);
+  const [orderingPendingCount, setOrderingPendingCount] = useState(0);
+
+  const fetchRecords = async () => {
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from("records")
+      .select("id,title,discogs_id,genre:genres(name),subgenre:subgenres(name),cubby,order,on_my_wall,out_for_the_day,image_url,artists(name)")
+      .order("cubby", { ascending: true })
+      .order("order", { ascending: true });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+    const mapped = (data || []).map((rec: any) => ({
+      ...rec,
+      genre: rec.genre?.name || "",
+      subgenre: rec.subgenre?.name || "",
+      artists: rec.artists ? rec.artists.map((a: any) => a.name) : [],
+    }));
+    setRecords(mapped);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchRecords = async () => {
-      setLoading(true);
-      setError(null);
-      const { data, error } = await supabase
-        .from("records")
-        .select("id,title,discogs_id,genre:genres(name),subgenre:subgenres(name),cubby,order,on_my_wall,out_for_the_day,image_url,artists(name)")
-        .order("cubby", { ascending: true })
-        .order("order", { ascending: true });
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-      // Map artists and flatten genre/subgenre
-      const mapped = (data || []).map((rec: any) => ({
-        ...rec,
-        genre: rec.genre?.name || "",
-        subgenre: rec.subgenre?.name || "",
-        artists: rec.artists ? rec.artists.map((a: any) => a.name) : [],
-      }));
-      setRecords(mapped);
-      setLoading(false);
-    };
     fetchRecords();
   }, []);
+
+  const handleEnsureOrdering = async () => {
+    setOrderingCheckLoading(true);
+    setOrderingMessage(null);
+
+    try {
+      const res = await fetch("/api/ensure-ordering", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apply: false }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to verify ordering");
+      }
+
+      if (data.alreadyOrdered) {
+        setOrderingMessage("Ordering is already correct.");
+      } else {
+        setOrderingPendingCount(Number(data.needsUpdate || 0));
+        setShowOrderingConfirm(true);
+      }
+    } catch (err: any) {
+      setOrderingMessage(err?.message || "Failed to verify ordering");
+    } finally {
+      setOrderingCheckLoading(false);
+    }
+  };
+
+  const handleApplyOrdering = async () => {
+    setOrderingCheckLoading(true);
+    setOrderingMessage(null);
+
+    try {
+      const res = await fetch("/api/ensure-ordering", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apply: true }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to apply ordering");
+      }
+
+      setShowOrderingConfirm(false);
+      setOrderingMessage(`Ordering repaired: updated ${data.updated} of ${data.total} records.`);
+      await fetchRecords();
+    } catch (err: any) {
+      setOrderingMessage(err?.message || "Failed to apply ordering");
+    } finally {
+      setOrderingCheckLoading(false);
+    }
+  };
 
   const handleToggleWall = (id: number) => {
     setRecords((prev) =>
@@ -152,6 +211,17 @@ export default function Home() {
             }).length} result(s)
           </p>
         )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleEnsureOrdering}
+            disabled={orderingCheckLoading}
+            className="btn btn-secondary"
+          >
+            {orderingCheckLoading ? "Checking order..." : "Check / Repair Ordering"}
+          </button>
+          {orderingMessage && <p className="text-xs subtle">{orderingMessage}</p>}
+        </div>
       </div>
 
       <div className="flex-1 mt-4 panel">
@@ -226,6 +296,33 @@ export default function Home() {
               </div>
             )}
             {!discogsLoading && !discogsData && <div className="subtle">No Discogs data available.</div>}
+          </div>
+        </div>
+      )}
+
+      {showOrderingConfirm && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setShowOrderingConfirm(false)}>
+          <div className="panel p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold">Apply Ordering Fix?</h2>
+            <p className="text-sm subtle mt-2">
+              Found {orderingPendingCount} record(s) out of order. Do you want to apply the canonical ordering now?
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowOrderingConfirm(false)}
+                className="btn btn-secondary"
+                disabled={orderingCheckLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApplyOrdering}
+                className="btn btn-primary"
+                disabled={orderingCheckLoading}
+              >
+                {orderingCheckLoading ? "Applying..." : "Apply fix"}
+              </button>
+            </div>
           </div>
         </div>
       )}
