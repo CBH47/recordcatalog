@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { TopPageSelector } from "../../components/TopPageSelector";
-import { calculateListeningStreak, getListeningEntries, type ListeningEntry } from "../../lib/collectionExtras";
+import { calculateListeningStreak, LISTENING_KEY, type ListeningEntry } from "../../lib/collectionExtras";
+import { useStorageSync } from "../../lib/useStorageSync";
 
 type CountRow = {
   label: string;
@@ -24,11 +25,7 @@ function formatDate(value: string) {
 }
 
 export default function HistoryPage() {
-  const [entries, setEntries] = useState<ListeningEntry[]>([]);
-
-  useEffect(() => {
-    setEntries(getListeningEntries());
-  }, []);
+  const [entries] = useStorageSync<ListeningEntry[]>(LISTENING_KEY, []);
 
   const streak = useMemo(() => calculateListeningStreak(entries), [entries]);
   const topArtists = useMemo(() => toRows(entries.map((e) => e.artist || "Unknown artist")).slice(0, 8), [entries]);
@@ -108,7 +105,7 @@ export default function HistoryPage() {
         <div className="panel p-4">
           <h2 className="text-lg font-semibold">Recent listens</h2>
           {entries.length === 0 ? (
-            <p className="subtle mt-3 text-sm">No history yet. Use log buttons in Wall/Random or Listening Mode.</p>
+            <p className="subtle mt-3 text-sm">No history yet. Use the log buttons in Wall or Random.</p>
           ) : (
             <ul className="mt-3 space-y-2 max-h-[420px] overflow-y-auto pr-1">
               {entries.map((entry) => (

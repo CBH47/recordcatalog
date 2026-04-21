@@ -4,12 +4,13 @@ import React, { useEffect, useState } from "react";
 import { TopPageSelector } from "../../components/TopPageSelector";
 import {
   addWishlistItem,
-  getWishlistItems,
   recordWishlistPriceSnapshot,
   removeWishlistItem,
   updateWishlistStatus,
+  WISHLIST_KEY,
   type WishlistItem,
 } from "../../lib/collectionExtras";
+import { useStorageSync } from "../../lib/useStorageSync";
 
 type TrendLookupResponse = {
   discogsId: number;
@@ -134,7 +135,7 @@ function PriceSparkline({
 }
 
 export default function WishlistPage() {
-  const [items, setItems] = useState<WishlistItem[]>([]);
+  const [items, setItems] = useStorageSync<WishlistItem[]>(WISHLIST_KEY, []);
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
@@ -144,10 +145,6 @@ export default function WishlistPage() {
   const [trendLoadingById, setTrendLoadingById] = useState<Record<string, boolean>>({});
   const [trendMessage, setTrendMessage] = useState<string | null>(null);
   const [chartWindow, setChartWindow] = useState<ChartWindow>("30");
-
-  useEffect(() => {
-    setItems(getWishlistItems());
-  }, []);
 
   const handleAdd = () => {
     setError(null);

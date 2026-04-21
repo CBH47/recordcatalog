@@ -28,8 +28,8 @@ export type ListeningEntry = {
   playedAt: string;
 };
 
-const WISHLIST_KEY = "recordcatalog_wishlist";
-const LISTENING_KEY = "recordcatalog_listening_history";
+export const WISHLIST_KEY = "recordcatalog_wishlist";
+export const LISTENING_KEY = "recordcatalog_listening_history";
 
 function readJson<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
