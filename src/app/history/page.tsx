@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { TopPageSelector } from "../../components/TopPageSelector";
-import { calculateListeningStreak, LISTENING_KEY, type ListeningEntry } from "../../lib/collectionExtras";
-import { useStorageSync } from "../../lib/useStorageSync";
+import { calculateListeningStreak, type ListeningEntry } from "../../lib/collectionExtras";
 
 type CountRow = {
   label: string;
@@ -25,7 +24,23 @@ function formatDate(value: string) {
 }
 
 export default function HistoryPage() {
-  const [entries] = useStorageSync<ListeningEntry[]>(LISTENING_KEY, []);
+  const [entries, setEntries] = useState<ListeningEntry[]>([]);
+
+  const loadEntries = useCallback(async () => {
+    const res = await fetch("/api/listening-history");
+    if (res.ok) setEntries(await res.json());
+  }, []);
+
+  useEffect(() => {
+    loadEntries();
+    const sync = () => loadEntries();
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [loadEntries]);
 
   const streak = useMemo(() => calculateListeningStreak(entries), [entries]);
   const topArtists = useMemo(() => toRows(entries.map((e) => e.artist || "Unknown artist")).slice(0, 8), [entries]);

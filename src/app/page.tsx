@@ -4,7 +4,6 @@ import { TopPageSelector } from "../components/TopPageSelector";
 import type { Record } from "../components/CubbyWall";
 import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { addListeningEntry } from "../lib/collectionExtras";
 import Link from "next/link";
 
 export default function Home() {
@@ -315,10 +314,14 @@ export default function Home() {
             <div className="mb-3 flex flex-wrap gap-2">
               <button
                 onClick={() => {
-                  addListeningEntry({
-                    recordId: selected.id,
-                    title: selected.title,
-                    artist: selected.artists?.join(", ") || "",
+                  void fetch("/api/listening-history", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      recordId: selected.id,
+                      title: selected.title,
+                      artist: selected.artists?.join(", ") || "",
+                    }),
                   });
                   setOrderingMessage(`Logged play for "${selected.title}".`);
                 }}

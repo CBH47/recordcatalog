@@ -1,16 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { TopPageSelector } from "../../components/TopPageSelector";
-import {
-  addWishlistItem,
-  recordWishlistPriceSnapshot,
-  removeWishlistItem,
-  updateWishlistStatus,
-  WISHLIST_KEY,
-  type WishlistItem,
-} from "../../lib/collectionExtras";
-import { useStorageSync } from "../../lib/useStorageSync";
+import { type WishlistItem } from "../../lib/collectionExtras";
 
 type TrendLookupResponse = {
   discogsId: number;
@@ -135,7 +127,7 @@ function PriceSparkline({
 }
 
 export default function WishlistPage() {
-  const [items, setItems] = useStorageSync<WishlistItem[]>(WISHLIST_KEY, []);
+  const [items, setItems] = useState<WishlistItem[]>([]);
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
@@ -146,7 +138,23 @@ export default function WishlistPage() {
   const [trendMessage, setTrendMessage] = useState<string | null>(null);
   const [chartWindow, setChartWindow] = useState<ChartWindow>("30");
 
-  const handleAdd = () => {
+  const loadItems = useCallback(async () => {
+    const res = await fetch("/api/wishlist");
+    if (res.ok) setItems(await res.json());
+  }, []);
+
+  useEffect(() => {
+    loadItems();
+    const sync = () => loadItems();
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [loadItems]);
+
+  const handleAdd = async () => {
     setError(null);
 
     if (!title.trim()) {
@@ -154,16 +162,27 @@ export default function WishlistPage() {
       return;
     }
 
-    const next = addWishlistItem({
-      title: title.trim(),
-      artist: artist.trim(),
-      targetPrice: targetPrice.trim(),
-      notes: notes.trim(),
-      status: "wanted",
-      discogsId: Number.isFinite(Number.parseInt(discogsId, 10)) ? Number.parseInt(discogsId, 10) : null,
+    const res = await fetch("/api/wishlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: title.trim(),
+        artist: artist.trim(),
+        targetPrice: targetPrice.trim(),
+        notes: notes.trim(),
+        status: "wanted",
+        discogsId: Number.isFinite(Number.parseInt(discogsId, 10)) ? Number.parseInt(discogsId, 10) : null,
+      }),
     });
 
-    setItems(next);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError((d as any)?.error || "Failed to add item.");
+      return;
+    }
+
+    const created: WishlistItem = await res.json();
+    setItems((prev) => [created, ...prev]);
     setTitle("");
     setArtist("");
     setTargetPrice("");
@@ -189,16 +208,26 @@ export default function WishlistPage() {
       }
 
       const trendData = data as TrendLookupResponse;
-      const next = recordWishlistPriceSnapshot(item.id, {
-        checkedAt: trendData.checkedAt,
-        discogsId: trendData.discogsId,
-        lowestPrice: trendData.lowestPrice,
-        medianPrice: trendData.medianPrice,
-        currency: trendData.currency,
-        numForSale: trendData.numForSale,
+      const patchRes = await fetch(`/api/wishlist/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "snapshot",
+          snapshot: {
+            checkedAt: trendData.checkedAt,
+            discogsId: trendData.discogsId,
+            lowestPrice: trendData.lowestPrice,
+            medianPrice: trendData.medianPrice,
+            currency: trendData.currency,
+            numForSale: trendData.numForSale,
+          },
+        }),
       });
 
-      setItems(next);
+      if (patchRes.ok) {
+        const updated: WishlistItem = await patchRes.json();
+        setItems((prev) => prev.map((i) => (i.id === item.id ? updated : i)));
+      }
       setTrendMessage(`Updated trend for \"${item.title}\".`);
     } catch (err: any) {
       setTrendMessage(err?.message || "Failed to check trend.");
@@ -317,13 +346,27 @@ export default function WishlistPage() {
                     </button>
                     <button
                       className="btn btn-secondary"
-                      onClick={() => setItems(updateWishlistStatus(item.id, item.status === "wanted" ? "acquired" : "wanted"))}
+                      onClick={async () => {
+                        const newStatus = item.status === "wanted" ? "acquired" : "wanted";
+                        const r = await fetch(`/api/wishlist/${item.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ type: "status", status: newStatus }),
+                        });
+                        if (r.ok) {
+                          const updated: WishlistItem = await r.json();
+                          setItems((prev) => prev.map((i) => (i.id === item.id ? updated : i)));
+                        }
+                      }}
                     >
                       {item.status === "wanted" ? "Mark acquired" : "Mark wanted"}
                     </button>
                     <button
                       className="btn btn-secondary"
-                      onClick={() => setItems(removeWishlistItem(item.id))}
+                      onClick={async () => {
+                        await fetch(`/api/wishlist/${item.id}`, { method: "DELETE" });
+                        setItems((prev) => prev.filter((i) => i.id !== item.id));
+                      }}
                     >
                       Remove
                     </button>

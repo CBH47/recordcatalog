@@ -3,7 +3,6 @@
 import Link from "next/link";
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { TopPageSelector } from "../../components/TopPageSelector";
-import { addListeningEntry } from "../../lib/collectionExtras";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -232,10 +231,14 @@ function RandomPickerContent() {
 
   const handleLogPlay = () => {
     if (!picked) return;
-    addListeningEntry({
-      recordId: picked.id,
-      title: picked.title,
-      artist: picked.artists.join(", "),
+    void fetch("/api/listening-history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recordId: picked.id,
+        title: picked.title,
+        artist: picked.artists.join(", "),
+      }),
     });
     setHistoryMessage(`Logged play for "${picked.title}".`);
   };
