@@ -42,6 +42,7 @@ export default function ScannerPage() {
   const [supportsBarcodeDetector, setSupportsBarcodeDetector] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [upc, setUpc] = useState("");
+  const [discogsUrl, setDiscogsUrl] = useState("");
   const [cubby, setCubby] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
@@ -155,6 +156,35 @@ export default function ScannerPage() {
     }
   };
 
+  const handleLookupByUrl = async () => {
+    setError(null);
+    setAddedMessage(null);
+    setPreview(null);
+
+    const cleanUrl = discogsUrl.trim();
+    if (!cleanUrl) {
+      setError("Paste a Discogs release URL first.");
+      return;
+    }
+
+    setLookupLoading(true);
+    try {
+      const res = await fetch(`/api/discogs-release?url=${encodeURIComponent(cleanUrl)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Discogs URL lookup failed");
+      }
+      setPreview(data.preview);
+      if (data?.preview?.upc) {
+        setUpc(String(data.preview.upc));
+      }
+    } catch (err: any) {
+      setError(err?.message || "Discogs URL lookup failed");
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
   const handleAddRecord = async () => {
     if (!preview) return;
 
@@ -262,7 +292,7 @@ export default function ScannerPage() {
             Barcode <span className="hero-accent">Scanner</span>
           </h1>
           <p className="text-sm subtle mt-2">
-            Scan or enter a UPC, preview Discogs match, then add it to your collection with automatic global ordering.
+            Scan or enter a UPC, or paste a Discogs release URL, then add it to your collection with automatic global ordering.
           </p>
         </div>
         <TopPageSelector currentPage="scanner" />
@@ -314,6 +344,25 @@ export default function ScannerPage() {
                 className="btn btn-secondary"
               >
                 {lookupLoading ? "Looking up..." : "Lookup"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <label className="block text-xs subtle mb-1">Discogs release URL</label>
+            <div className="flex gap-2">
+              <input
+                value={discogsUrl}
+                onChange={(e) => setDiscogsUrl(e.target.value)}
+                placeholder="https://www.discogs.com/release/..."
+                className="field"
+              />
+              <button
+                onClick={handleLookupByUrl}
+                disabled={lookupLoading}
+                className="btn btn-secondary"
+              >
+                {lookupLoading ? "Looking up..." : "Lookup URL"}
               </button>
             </div>
           </div>

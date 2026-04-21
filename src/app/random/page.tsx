@@ -56,6 +56,7 @@ function RandomPickerContent() {
   const [genreParam, setGenreParam] = useState(searchParams?.get("genre") || "");
   const [mode, setMode] = useState<FilterMode>(searchParams?.get("mode") === "exclude" ? "exclude" : "only");
   const [subgenreParam, setSubgenreParam] = useState(searchParams?.get("subgenre") || "");
+  const [cubbyParam, setCubbyParam] = useState(searchParams?.get("cubby") || "");
   const [onlyOnWall, setOnlyOnWall] = useState(searchParams?.get("onWall") === "1");
   const [excludeOutForDay, setExcludeOutForDay] = useState(searchParams?.get("excludeOut") === "1");
   const [requireCoverArt, setRequireCoverArt] = useState(searchParams?.get("cover") === "1");
@@ -140,6 +141,9 @@ function RandomPickerContent() {
     if (subgenreParam) params.set("subgenre", subgenreParam);
     else params.delete("subgenre");
 
+    if (cubbyParam) params.set("cubby", cubbyParam);
+    else params.delete("cubby");
+
     params.set("mode", mode);
 
     if (onlyOnWall) params.set("onWall", "1");
@@ -155,7 +159,7 @@ function RandomPickerContent() {
     if (next !== current) {
       router.replace(`/random?${next}`);
     }
-  }, [genreParam, subgenreParam, mode, onlyOnWall, excludeOutForDay, requireCoverArt, router, searchParams]);
+  }, [genreParam, subgenreParam, cubbyParam, mode, onlyOnWall, excludeOutForDay, requireCoverArt, router, searchParams]);
 
   const genres = useMemo(() => {
     const unique = Array.from(new Set(records.map((r) => r.genre).filter(Boolean)));
@@ -170,6 +174,11 @@ function RandomPickerContent() {
     return unique.sort((a, b) => a.localeCompare(b));
   }, [records, genreParam]);
 
+  const cubbies = useMemo(() => {
+    const unique = Array.from(new Set(records.map((r) => r.cubby).filter((c): c is number => typeof c === "number")));
+    return unique.sort((a, b) => a - b);
+  }, [records]);
+
   const filtered = useMemo(() => {
     const genreNeedle = genreParam.toLowerCase();
     const subgenreNeedle = subgenreParam.toLowerCase();
@@ -182,12 +191,16 @@ function RandomPickerContent() {
       }
 
       if (subgenreParam && r.subgenre.toLowerCase() !== subgenreNeedle) return false;
+      if (cubbyParam) {
+        if (cubbyParam === "none" && r.cubby !== null) return false;
+        if (cubbyParam !== "none" && String(r.cubby ?? "") !== cubbyParam) return false;
+      }
       if (onlyOnWall && !r.on_my_wall) return false;
       if (excludeOutForDay && r.out_for_the_day) return false;
       if (requireCoverArt && !hasUsableImage(r.image_url)) return false;
       return true;
     });
-  }, [records, genreParam, mode, subgenreParam, onlyOnWall, excludeOutForDay, requireCoverArt]);
+  }, [records, genreParam, mode, subgenreParam, cubbyParam, onlyOnWall, excludeOutForDay, requireCoverArt]);
 
   const eligible = useMemo(() => {
     if (!avoidRecent) return filtered;
@@ -260,7 +273,7 @@ function RandomPickerContent() {
           <TopPageSelector currentPage="random" />
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-[160px_1fr_1fr]">
+        <div className="mt-5 grid gap-3 md:grid-cols-[160px_1fr_1fr_180px]">
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Mode</label>
             <select
@@ -300,6 +313,21 @@ function RandomPickerContent() {
               <option value="">Any subgenre</option>
               {subgenres.map((sg) => (
                 <option key={sg} value={sg}>{sg}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Cubby (optional)</label>
+            <select
+              value={cubbyParam}
+              onChange={(e) => setCubbyParam(e.target.value)}
+              className="field"
+            >
+              <option value="">Any cubby</option>
+              <option value="none">Unassigned</option>
+              {cubbies.map((c) => (
+                <option key={c} value={String(c)}>Cubby {c}</option>
               ))}
             </select>
           </div>
