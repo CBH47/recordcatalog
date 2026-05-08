@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="No cover image">
+  <rect width="320" height="320" fill="#27272a" />
+  <rect x="24" y="24" width="272" height="272" rx="12" fill="#3f3f46" />
+  <circle cx="160" cy="160" r="66" fill="#71717a" />
+  <circle cx="160" cy="160" r="16" fill="#18181b" />
+  <text x="160" y="292" text-anchor="middle" font-size="16" fill="#d4d4d8" font-family="Verdana, sans-serif">No Cover</text>
+</svg>
