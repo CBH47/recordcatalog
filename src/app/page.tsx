@@ -26,6 +26,7 @@ export default function Home() {
   const [showOrderingConfirm, setShowOrderingConfirm] = useState(false);
   const [orderingPendingCount, setOrderingPendingCount] = useState(0);
   const [styleByCubby, setStyleByCubby] = useState<CubbyStyleMap>({});
+  const [selectedStyleCubby, setSelectedStyleCubby] = useState("0");
   const [styleSyncMessage, setStyleSyncMessage] = useState<string | null>(null);
   const [rebuildGroupSize, setRebuildGroupSize] = useState("20");
   const [rebuildLoading, setRebuildLoading] = useState(false);
@@ -54,6 +55,15 @@ export default function Home() {
       return changed ? next : prev;
     });
   }, [cubbyNumbers]);
+
+  useEffect(() => {
+    if (!cubbyNumbers.length) return;
+
+    const current = Number.parseInt(selectedStyleCubby, 10);
+    if (!Number.isFinite(current) || !cubbyNumbers.includes(current)) {
+      setSelectedStyleCubby(String(cubbyNumbers[0]));
+    }
+  }, [cubbyNumbers, selectedStyleCubby]);
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -382,30 +392,50 @@ export default function Home() {
           <p className="text-xs uppercase tracking-[0.2em] subtle">Per-Cubby Ordering Style</p>
           <p className="text-sm subtle mt-1">Choose how each cubby should be sorted when you run Check/Repair or Rebuild.</p>
           {styleSyncMessage && <p className="text-xs subtle mt-2">{styleSyncMessage}</p>}
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {cubbyNumbers.map((cubby) => (
-              <div key={cubby}>
-                <label className="block text-xs subtle mb-1">{cubby === 0 ? "Unassigned" : `Cubby ${cubby}`}</label>
-                <select
-                  value={styleByCubby[cubby] || "genre-artist"}
-                  onChange={(e) => {
-                    const nextStyle: OrderingStyle = e.target.value === "artist-only" ? "artist-only" : "genre-artist";
-                    setStyleByCubby((prev) => {
-                      const next = {
-                        ...prev,
-                        [cubby]: nextStyle,
-                      };
-                      void persistStyles(next);
-                      return next;
-                    });
-                  }}
-                  className="field"
-                >
-                  <option value="genre-artist">Genre then artist</option>
-                  <option value="artist-only">Pure artist</option>
-                </select>
-              </div>
-            ))}
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-xs subtle mb-1">Cubby</label>
+              <select
+                value={selectedStyleCubby}
+                onChange={(e) => setSelectedStyleCubby(e.target.value)}
+                className="field min-w-36"
+              >
+                {cubbyNumbers.map((cubby) => (
+                  <option key={cubby} value={String(cubby)}>
+                    {cubby === 0 ? "Unassigned" : `Cubby ${cubby}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs subtle mb-1">Style</label>
+              <select
+                value={styleByCubby[Number.parseInt(selectedStyleCubby, 10)] || "genre-artist"}
+                onChange={(e) => {
+                  const cubby = Number.parseInt(selectedStyleCubby, 10);
+                  if (!Number.isFinite(cubby)) return;
+                  const nextStyle: OrderingStyle = e.target.value === "artist-only" ? "artist-only" : "genre-artist";
+                  setStyleByCubby((prev) => {
+                    const next = {
+                      ...prev,
+                      [cubby]: nextStyle,
+                    };
+                    void persistStyles(next);
+                    return next;
+                  });
+                }}
+                className="field min-w-44"
+                disabled={!cubbyNumbers.length}
+              >
+                <option value="genre-artist">Genre then artist</option>
+                <option value="artist-only">Pure artist</option>
+              </select>
+            </div>
+            {cubbyNumbers.length > 0 && (
+              <p className="text-xs subtle">
+                Editing {Number.parseInt(selectedStyleCubby, 10) === 0 ? "Unassigned" : `Cubby ${selectedStyleCubby}`}
+              </p>
+            )}
           </div>
         </div>
 
