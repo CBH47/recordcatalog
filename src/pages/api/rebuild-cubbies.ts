@@ -36,10 +36,11 @@ function getArtistSortKey(name: string) {
 type SortRecord = {
   id: number;
   currentOrder: number;
-  cubby: number;
+  currentCubby: number | null;
   genre: string;
   artistKey: string;
   title: string;
+  targetCubby: number;
 };
 
 type OrderingStyle = "genre-artist" | "artist-only";
@@ -78,7 +79,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const applyChanges = Boolean(req.body?.apply);
+  const raw = Number.parseInt(String(req.body?.groupSize ?? ""), 10);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return res.status(400).json({ error: "groupSize must be a positive integer" });
+  }
+
+  const groupSize = Math.floor(raw);
   const styleByCubby = parseStyleByCubby(req.body?.styleByCubby);
 
   try {
@@ -101,24 +107,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return {
         id: rec.id,
         currentOrder: Number(rec.order || 0),
-        cubby: typeof rec.cubby === "number" ? rec.cubby : 0,
+        currentCubby: rec.cubby ?? null,
         genre,
         artistKey,
         title,
+        targetCubby: 0,
       };
     });
 
-    const byCubby = new Map<number, SortRecord[]>();
-    for (const rec of sortable) {
-      if (!byCubby.has(rec.cubby)) byCubby.set(rec.cubby, []);
-      byCubby.get(rec.cubby)!.push(rec);
+    // Collapse all cubbies by canonical genre->artist order before regrouping.
+    sortable.sort((a, b) => {
+      const keyCmp = getOrderingKey(a, "genre-artist").localeCompare(getOrderingKey(b, "genre-artist"));
+      if (keyCmp !== 0) return keyCmp;
+      return a.id - b.id;
+    });
+
+    for (let idx = 0; idx < sortable.length; idx += 1) {
+      sortable[idx].targetCubby = Math.floor(idx / groupSize) + 1;
     }
 
-    const desired: Array<{ id: number; currentOrder: number; desiredOrder: number }> = [];
-    const cubbies = Array.from(byCubby.keys()).sort((a, b) => a - b);
+    const byTargetCubby = new Map<number, SortRecord[]>();
+    for (const rec of sortable) {
+      if (!byTargetCubby.has(rec.targetCubby)) byTargetCubby.set(rec.targetCubby, []);
+      byTargetCubby.get(rec.targetCubby)!.push(rec);
+    }
+
+    const orderedForWrite: Array<SortRecord & { desiredOrder: number; desiredCubby: number }> = [];
+    const cubbies = Array.from(byTargetCubby.keys()).sort((a, b) => a - b);
     for (const cubby of cubbies) {
       const style = resolveStyle(cubby, styleByCubby);
-      const rows = byCubby.get(cubby) || [];
+      const rows = byTargetCubby.get(cubby) || [];
       rows.sort((a, b) => {
         const keyCmp = getOrderingKey(a, style).localeCompare(getOrderingKey(b, style));
         if (keyCmp !== 0) return keyCmp;
@@ -126,59 +144,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       for (let idx = 0; idx < rows.length; idx += 1) {
-        desired.push({
-          id: rows[idx].id,
-          currentOrder: rows[idx].currentOrder,
+        orderedForWrite.push({
+          ...rows[idx],
+          desiredCubby: cubby,
           desiredOrder: (idx + 1) * 1000,
         });
       }
     }
 
-    const toUpdate = desired.filter((row) => row.currentOrder !== row.desiredOrder);
+    let changed = 0;
 
-    if (!toUpdate.length) {
-      return res.status(200).json({
-        success: true,
-        alreadyOrdered: true,
-        dryRun: !applyChanges,
-        styleByCubby,
-        needsUpdate: 0,
-        updated: 0,
-        total: desired.length,
-      });
-    }
+    for (const rec of orderedForWrite) {
+      const desiredOrder = rec.desiredOrder;
+      const desiredCubby = rec.desiredCubby;
 
-    if (!applyChanges) {
-      return res.status(200).json({
-        success: true,
-        alreadyOrdered: false,
-        dryRun: true,
-        styleByCubby,
-        needsUpdate: toUpdate.length,
-        updated: 0,
-        total: desired.length,
-      });
-    }
+      if (rec.currentOrder === desiredOrder && rec.currentCubby === desiredCubby) {
+        continue;
+      }
 
-    for (const row of toUpdate) {
       const { error: updateError } = await supabase
         .from("records")
-        .update({ order: row.desiredOrder })
-        .eq("id", row.id);
+        .update({ order: desiredOrder, cubby: desiredCubby })
+        .eq("id", rec.id);
 
       if (updateError) {
-        throw new Error(`Failed to update record ${row.id}: ${updateError.message}`);
+        throw new Error(`Failed to update record ${rec.id}: ${updateError.message}`);
       }
+
+      changed += 1;
     }
+
+    const cubbiesCreated = sortable.length === 0 ? 0 : Math.ceil(sortable.length / groupSize);
 
     return res.status(200).json({
       success: true,
-      alreadyOrdered: false,
-      dryRun: false,
+      total: sortable.length,
+      changed,
+      groupSize,
       styleByCubby,
-      needsUpdate: toUpdate.length,
-      updated: toUpdate.length,
-      total: desired.length,
+      cubbiesCreated,
     });
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || "Internal server error" });

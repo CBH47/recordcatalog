@@ -2,11 +2,16 @@
 import { CubbyWall } from "../components/CubbyWall";
 import { TopPageSelector } from "../components/TopPageSelector";
 import type { Record } from "../components/CubbyWall";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import Link from "next/link";
 
+type OrderingStyle = "genre-artist" | "artist-only";
+type CubbyStyleMap = { [cubby: number]: OrderingStyle };
+
 export default function Home() {
+  const REBUILD_PIN = "4774";
+
   const [records, setRecords] = useState<Record[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +25,35 @@ export default function Home() {
   const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
   const [showOrderingConfirm, setShowOrderingConfirm] = useState(false);
   const [orderingPendingCount, setOrderingPendingCount] = useState(0);
+  const [styleByCubby, setStyleByCubby] = useState<CubbyStyleMap>({});
+  const [styleSyncMessage, setStyleSyncMessage] = useState<string | null>(null);
+  const [rebuildGroupSize, setRebuildGroupSize] = useState("20");
+  const [rebuildLoading, setRebuildLoading] = useState(false);
+  const [showRebuildConfirm, setShowRebuildConfirm] = useState(false);
+  const [rebuildPinInput, setRebuildPinInput] = useState("");
+
+  const cubbyNumbers = useMemo(() => {
+    const unique = Array.from(
+      new Set(records.map((r) => (typeof r.cubby === "number" ? r.cubby : 0)))
+    );
+    return unique.sort((a, b) => a - b);
+  }, [records]);
+
+  useEffect(() => {
+    setStyleByCubby((prev) => {
+      const next: CubbyStyleMap = { ...prev };
+      let changed = false;
+
+      for (const cubby of cubbyNumbers) {
+        if (!next[cubby]) {
+          next[cubby] = "genre-artist";
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [cubbyNumbers]);
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -48,6 +82,50 @@ export default function Home() {
     fetchRecords();
   }, []);
 
+  useEffect(() => {
+    const loadPersistedStyles = async () => {
+      try {
+        const res = await fetch("/api/cubby-ordering-styles");
+        const data = await res.json();
+        if (!res.ok) return;
+
+        if (data?.missingTable) {
+          setStyleSyncMessage("Style persistence table is missing; using in-session defaults.");
+          return;
+        }
+
+        if (data?.styleByCubby && typeof data.styleByCubby === "object") {
+          setStyleByCubby((prev) => ({
+            ...data.styleByCubby,
+            ...prev,
+          }));
+          setStyleSyncMessage("Per-cubby styles loaded from Supabase.");
+        }
+      } catch {
+        setStyleSyncMessage("Unable to load saved cubby styles.");
+      }
+    };
+
+    loadPersistedStyles();
+  }, []);
+
+  const persistStyles = async (nextStyles: CubbyStyleMap) => {
+    try {
+      const res = await fetch("/api/cubby-ordering-styles", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ styleByCubby: nextStyles }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to save cubby styles");
+      }
+      setStyleSyncMessage("Per-cubby styles saved.");
+    } catch (err: any) {
+      setStyleSyncMessage(err?.message || "Failed to save cubby styles.");
+    }
+  };
+
   const handleEnsureOrdering = async () => {
     setOrderingCheckLoading(true);
     setOrderingMessage(null);
@@ -56,7 +134,7 @@ export default function Home() {
       const res = await fetch("/api/ensure-ordering", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apply: false }),
+        body: JSON.stringify({ apply: false, styleByCubby }),
       });
       const data = await res.json();
 
@@ -65,7 +143,7 @@ export default function Home() {
       }
 
       if (data.alreadyOrdered) {
-        setOrderingMessage("Ordering is already correct.");
+        setOrderingMessage("Ordering is already correct for all cubbies.");
       } else {
         setOrderingPendingCount(Number(data.needsUpdate || 0));
         setShowOrderingConfirm(true);
@@ -85,7 +163,7 @@ export default function Home() {
       const res = await fetch("/api/ensure-ordering", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apply: true }),
+        body: JSON.stringify({ apply: true, styleByCubby }),
       });
       const data = await res.json();
 
@@ -205,6 +283,46 @@ export default function Home() {
     }
   };
 
+  const handleRebuildCubbies = async () => {
+    const parsed = Number.parseInt(rebuildGroupSize.trim(), 10);
+    if (Number.isNaN(parsed) || parsed <= 0) {
+      setOrderingMessage("Enter a valid positive group size.");
+      return;
+    }
+
+    if (rebuildPinInput.trim() !== REBUILD_PIN) {
+      setOrderingMessage("Incorrect PIN. Rebuild cancelled.");
+      return;
+    }
+
+    setRebuildLoading(true);
+    setOrderingMessage(null);
+
+    try {
+      const res = await fetch("/api/rebuild-cubbies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupSize: parsed, styleByCubby }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to rebuild cubbies");
+      }
+
+      setOrderingMessage(
+        `Rebuilt ${data.total} records into ${data.cubbiesCreated} cubbies (size ${data.groupSize}). Updated ${data.changed} record(s).`
+      );
+      setShowRebuildConfirm(false);
+      setRebuildPinInput("");
+      await fetchRecords();
+    } catch (err: any) {
+      setOrderingMessage(err?.message || "Failed to rebuild cubbies");
+    } finally {
+      setRebuildLoading(false);
+    }
+  };
+
   return (
     <main className="flex flex-col flex-1 page-shell fade-in">
       <div className="hero-card px-4 py-5 md:px-6 md:py-6">
@@ -258,6 +376,73 @@ export default function Home() {
             {orderingCheckLoading ? "Checking order..." : "Check / Repair Ordering"}
           </button>
           {orderingMessage && <p className="text-xs subtle">{orderingMessage}</p>}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-zinc-800/90 bg-zinc-950/65 p-3 md:p-4">
+          <p className="text-xs uppercase tracking-[0.2em] subtle">Per-Cubby Ordering Style</p>
+          <p className="text-sm subtle mt-1">Choose how each cubby should be sorted when you run Check/Repair or Rebuild.</p>
+          {styleSyncMessage && <p className="text-xs subtle mt-2">{styleSyncMessage}</p>}
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {cubbyNumbers.map((cubby) => (
+              <div key={cubby}>
+                <label className="block text-xs subtle mb-1">{cubby === 0 ? "Unassigned" : `Cubby ${cubby}`}</label>
+                <select
+                  value={styleByCubby[cubby] || "genre-artist"}
+                  onChange={(e) => {
+                    const nextStyle: OrderingStyle = e.target.value === "artist-only" ? "artist-only" : "genre-artist";
+                    setStyleByCubby((prev) => {
+                      const next = {
+                        ...prev,
+                        [cubby]: nextStyle,
+                      };
+                      void persistStyles(next);
+                      return next;
+                    });
+                  }}
+                  className="field"
+                >
+                  <option value="genre-artist">Genre then artist</option>
+                  <option value="artist-only">Pure artist</option>
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-zinc-800/90 bg-zinc-950/65 p-3 md:p-4">
+          <p className="text-xs uppercase tracking-[0.2em] subtle">Cubby Rebuild</p>
+          <p className="text-sm subtle mt-1">Collapse all cubbies, apply true ordering, and reform cubbies in fixed-size groups.</p>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-xs subtle mb-1">Records per cubby</label>
+              <input
+                type="number"
+                min={1}
+                value={rebuildGroupSize}
+                onChange={(e) => setRebuildGroupSize(e.target.value)}
+                className="field w-36"
+                placeholder="Group size"
+                aria-label="Cubby group size"
+              />
+            </div>
+            <button
+              onClick={() => {
+                const parsed = Number.parseInt(rebuildGroupSize.trim(), 10);
+                if (Number.isNaN(parsed) || parsed <= 0) {
+                  setOrderingMessage("Enter a valid positive group size.");
+                  return;
+                }
+                setOrderingMessage(null);
+                setRebuildPinInput("");
+                setShowRebuildConfirm(true);
+              }}
+              disabled={rebuildLoading}
+              className="btn btn-primary"
+            >
+              {rebuildLoading ? "Rebuilding..." : "Rebuild Cubbies"}
+            </button>
+            <p className="text-xs subtle">Requires PIN confirmation.</p>
+          </div>
         </div>
       </div>
 
@@ -377,7 +562,7 @@ export default function Home() {
           <div className="panel p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold">Apply Ordering Fix?</h2>
             <p className="text-sm subtle mt-2">
-              Found {orderingPendingCount} record(s) out of order. Do you want to apply the canonical ordering now?
+              Found {orderingPendingCount} record(s) out of order. Do you want to apply canonical ordering using your per-cubby style rules?
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -393,6 +578,44 @@ export default function Home() {
                 disabled={orderingCheckLoading}
               >
                 {orderingCheckLoading ? "Applying..." : "Apply fix"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRebuildConfirm && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setShowRebuildConfirm(false)}>
+          <div className="panel p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold">Confirm Cubby Rebuild</h2>
+            <p className="text-sm subtle mt-2">
+              This will collapse existing cubby grouping and reform cubbies in groups of {rebuildGroupSize} records, then apply your per-cubby style rules.
+            </p>
+            <div className="mt-4">
+              <label className="block text-xs subtle mb-1">Enter PIN to confirm</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={rebuildPinInput}
+                onChange={(e) => setRebuildPinInput(e.target.value)}
+                placeholder="PIN"
+                className="field"
+              />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowRebuildConfirm(false)}
+                className="btn btn-secondary"
+                disabled={rebuildLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRebuildCubbies}
+                className="btn btn-primary"
+                disabled={rebuildLoading}
+              >
+                {rebuildLoading ? "Rebuilding..." : "Confirm rebuild"}
               </button>
             </div>
           </div>
