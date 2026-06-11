@@ -164,6 +164,83 @@ export default function Home() {
     }
   };
 
+  const handleQuickSetCubby = async (record: Record) => {
+    const input = window.prompt(
+      `Set cubby for "${record.title}"`,
+      record.cubby !== null && record.cubby !== undefined ? String(record.cubby) : ""
+    );
+    if (input === null) return;
+
+    const parsed = Number.parseInt(input.trim(), 10);
+    if (Number.isNaN(parsed)) {
+      setOrderingMessage("Enter a valid cubby number.");
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/updateCubby', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId: record.id, cubby: parsed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Failed to update cubby');
+
+      setRecords((prev) => prev.map((rec) => (rec.id === record.id ? { ...rec, cubby: parsed } : rec)));
+      setOrderingMessage(`Updated cubby to ${parsed}.`);
+    } catch (err: any) {
+      setOrderingMessage(err?.message || 'Failed to update cubby');
+    }
+  };
+
+  const handleQuickSetGenre = async (record: Record) => {
+    const input = window.prompt(`Set genre for "${record.title}"`, record.genre || "");
+    if (input === null) return;
+
+    try {
+      const res = await fetch('/api/updateRecordGenre', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId: record.id, genre: input }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to update genre');
+      }
+
+      const nextGenre = String(data?.genreName || '').trim();
+      setRecords((prev) => prev.map((rec) => (rec.id === record.id ? { ...rec, genre: nextGenre } : rec)));
+      setOrderingMessage(nextGenre ? `Updated genre to ${nextGenre}.` : 'Cleared genre.');
+    } catch (err: any) {
+      setOrderingMessage(err?.message || 'Failed to update genre');
+    }
+  };
+
+  const handleSetArtistsBandFlag = async (record: Record, isBand: boolean) => {
+    if (!record.artists?.length) {
+      setOrderingMessage("No artists found on this record.");
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/updateArtistsBandFlag', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artistNames: record.artists, isBand }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to update artist band flag');
+      }
+
+      setOrderingMessage(`Updated ${data.updatedCount || 0} artist(s) to ${isBand ? 'band' : 'solo'}.`);
+    } catch (err: any) {
+      setOrderingMessage(err?.message || 'Failed to update artist band flag');
+    }
+  };
+
   return (
     <main className="flex flex-col flex-1 page-shell fade-in">
       <div className="hero-card px-4 py-5 md:px-6 md:py-6">
@@ -226,6 +303,9 @@ export default function Home() {
               : records}
             onCubbyChange={handleCubbyChange}
             onRecordClick={handleRecordClick}
+            onQuickSetCubby={handleQuickSetCubby}
+            onQuickSetGenre={handleQuickSetGenre}
+            onSetArtistsBandFlag={handleSetArtistsBandFlag}
           />
         )}
       </div>

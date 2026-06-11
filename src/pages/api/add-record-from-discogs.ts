@@ -31,11 +31,19 @@ function getArtistSortKey(name: string, isBand?: boolean) {
   let isBandGroup = isBand;
   if (isBand === undefined || isBand === null) {
     const lower = clean.toLowerCase();
-    const bandKeywords = /(\&|\band\b|\bband\b|\borchestra\b|\bensemble\b|\btrio\b|\bquartet\b|\bproject\b|\bboys\b|\bgirls\b|\bbrothers\b|\bsisters\b|\bsons\b|\bdaughters\b)/i;
+    const bandKeywords = /(\&|\bband\b|\borchestra\b|\bensemble\b|\btrio\b|\bquartet\b|\bquintet\b|\bsextet\b|\bproject\b|\bcollective\b|\bchoir\b|\bclub\b|\bcrew\b|\bboys\b|\bgirls\b|\bbrothers\b|\bsisters\b|\bsons\b|\bdaughters\b|\boverdrive\b|\bexperience\b|\bgang\b|\bmachine\b|\bsystem\b|\bunion\b|\border\b|\bsociety\b)/i;
     const hasBandKeyword = bandKeywords.test(lower);
     const hasConjunction = /\s(and|&|\+|or)\s/i.test(lower);
-    const commonBandEndings = /\b(dead|floyd|police|genesis|journey|eagles|boston|chicago|phish|heads|stones|beetles|monkees|doors|cure|smiths|ramones|pistols|clash|sex|animals|byrds|hollies|seekers|cream|zeppelin|sabbath|maiden|priest|judas|guns|roses|skid|row|deep|purple|black|sabbath|smoke|water|fire|water)\b/i;
-    isBandGroup = hasBandKeyword || hasConjunction || (words.length >= 2 && commonBandEndings.test(lower));
+    const commonBandEndings = /\b(dead|floyd|police|genesis|journey|eagles|boston|chicago|phish|heads|stones|beetles|monkees|doors|cure|smiths|ramones|pistols|clash|animals|byrds|hollies|seekers|cream|zeppelin|sabbath|maiden|priest|judas|guns|roses|skid|row|deep|purple|overdrive|experience)\b/i;
+
+    // 3+ word names are usually bands unless they match a strong person-name pattern.
+    const hasSuffix = /\b(jr\.?|sr\.?|ii|iii|iv)\b/i.test(lower);
+    const hasInitial = words.some((w) => /^[a-z]\.?$/i.test(w));
+    const personMiddleNames = new Set(['lee', 'marie', 'ann', 'anne', 'jean', 'ray', 'rae', 'jo']);
+    const looksLikeThreePartPerson = words.length === 3 && (hasInitial || personMiddleNames.has(words[1].toLowerCase()) || hasSuffix);
+    const likelyBandByLength = words.length >= 3 && !looksLikeThreePartPerson;
+
+    isBandGroup = hasBandKeyword || hasConjunction || (words.length >= 2 && commonBandEndings.test(lower)) || likelyBandByLength;
   }
 
   // Only apply Last,First sorting to solo artists (not detected as bands)
