@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { data: records, error: fetchError } = await supabase
       .from("records")
-      .select("id,genre_id,discogs_genre_name");
+      .select("id,genre_id,discogs_genre_name,genre:genres(name)");
 
     if (fetchError) {
       return res.status(400).json({ error: fetchError.message });
@@ -49,9 +49,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let updated = 0;
     let unchanged = 0;
     let skipped = 0;
+    let backfilled = 0;
 
     for (const rec of records || []) {
-      const discogsGenre = normalizeText(rec.discogs_genre_name);
+      let discogsGenre = normalizeText(rec.discogs_genre_name);
+
+      // Older rows may not have discogs_genre_name yet. Backfill it from the
+      // current linked genre so future restores have a stored source value.
+      if (!discogsGenre) {
+        const fallbackGenre = normalizeText((rec as any)?.genre?.name);
+        if (fallbackGenre) {
+          const { error: backfillError } = await supabase
+            .from("records")
+            .update({ discogs_genre_name: fallbackGenre })
+            .eq("id", rec.id);
+
+          if (backfillError) {
+            throw new Error(`Failed backfilling discogs genre for record ${rec.id}: ${backfillError.message}`);
+          }
+
+          discogsGenre = fallbackGenre;
+          backfilled += 1;
+        }
+      }
+
       if (!discogsGenre) {
         skipped += 1;
         continue;
@@ -86,6 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updated,
       unchanged,
       skipped,
+      backfilled,
       message: "Genres replaced with stored Discogs genres.",
     });
   } catch (err: any) {

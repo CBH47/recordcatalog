@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #05070c;
-  --foreground: #edf2ff;
-  --muted: #91a1c4;
-  --panel: #0f131b;
-  --panel-soft: #131826;
-  --border: #232b3f;
-  --accent: #ff2f2f;
-  --accent-soft: #521217;
+  --background: #0f0b08;
+  --foreground: #f2e7d0;
+  --muted: #bba98b;
+  --panel: #1a130f;
+  --panel-soft: #221812;
+  --border: #4a3629;
+  --accent: #c46b3b;
+  --accent-soft: #5b2e1a;
 }
 
 @theme inline {
@@ -33,11 +33,18 @@ body::before {
   pointer-events: none;
   background-color: var(--background);
   background-image:
-    radial-gradient(circle at 8% -15%, rgba(255, 47, 47, 0.24), transparent 34%),
-    radial-gradient(circle at 85% -20%, rgba(53, 87, 168, 0.18), transparent 38%),
-    linear-gradient(165deg, #06090f 0%, #05070c 65%, #070a12 100%);
+    radial-gradient(circle at 12% -10%, rgba(196, 107, 59, 0.22), transparent 36%),
+    radial-gradient(circle at 88% 0%, rgba(106, 64, 42, 0.22), transparent 40%),
+    linear-gradient(160deg, #0f0b08 0%, #130d09 45%, #0b0806 100%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 244, 221, 0.018) 0px,
+      rgba(255, 244, 221, 0.018) 1px,
+      transparent 1px,
+      transparent 4px
+    );
   background-repeat: no-repeat;
-  background-size: 1600px 900px, 1400px 820px, 100% 100%;
+  background-size: 1600px 900px, 1400px 820px, 100% 100%, 100% 100%;
 }
 
 h1,
@@ -45,7 +52,8 @@ h2,
 h3,
 .display-font {
   font-family: var(--font-display), sans-serif;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .page-shell {
@@ -58,8 +66,16 @@ h3,
 .hero-card {
   border: 1px solid color-mix(in srgb, var(--border) 70%, #000 30%);
   border-radius: 18px;
-  background: linear-gradient(140deg, rgba(19, 24, 38, 0.92), rgba(13, 17, 25, 0.98));
-  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
+  background:
+    linear-gradient(140deg, rgba(34, 23, 16, 0.93), rgba(23, 16, 12, 0.98)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 226, 173, 0.02) 0px,
+      rgba(255, 226, 173, 0.02) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 216, 166, 0.1);
 }
 
 .hero-title {
@@ -70,7 +86,7 @@ h3,
 
 .hero-accent {
   color: var(--accent);
-  font-style: italic;
+  font-style: normal;
 }
 
 .subtle {
@@ -79,7 +95,7 @@ h3,
 
 .pill-nav {
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--panel) 80%, black 20%);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--panel) 82%, black 18%), color-mix(in srgb, var(--panel-soft) 88%, black 12%));
   border-radius: 999px;
   padding: 0.55rem 1rem;
   font-size: 0.86rem;
@@ -90,27 +106,36 @@ h3,
 }
 
 .pill-nav:hover {
-  border-color: color-mix(in srgb, var(--accent) 65%, white 35%);
+  border-color: color-mix(in srgb, var(--accent) 72%, white 28%);
   color: white;
 }
 
 .pill-nav-primary {
-  background: linear-gradient(135deg, #ff4f3d, #cc1f25);
-  border-color: #ff4f3d;
+  background: linear-gradient(135deg, #d68445, #9f4e2a);
+  border-color: #d68445;
   color: #fff;
 }
 
 .panel {
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: linear-gradient(150deg, rgba(15, 19, 27, 0.95), rgba(10, 13, 21, 0.98));
+  background:
+    linear-gradient(150deg, rgba(27, 19, 14, 0.96), rgba(19, 14, 10, 0.98)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 224, 166, 0.018) 0px,
+      rgba(255, 224, 166, 0.018) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 216, 166, 0.08);
 }
 
 .field {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--panel-soft) 85%, black 15%);
+  background: color-mix(in srgb, var(--panel-soft) 88%, black 12%);
   color: var(--foreground);
   padding: 0.65rem 0.85rem;
   font-size: 0.95rem;
@@ -119,7 +144,7 @@ h3,
 .field:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--accent) 62%, white 38%);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent 75%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent 70%);
 }
 
 .btn {
@@ -143,8 +168,8 @@ h3,
 }
 
 .btn-primary {
-  border-color: #ff4f3d;
-  background: linear-gradient(140deg, #ff4f3d, #d31e25);
+  border-color: #d68445;
+  background: linear-gradient(140deg, #d68445, #9f4e2a);
   color: white;
 }
 

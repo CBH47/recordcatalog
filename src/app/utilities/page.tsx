@@ -253,7 +253,7 @@ export default function Utilities() {
 
   if (!isUnlocked) {
     return (
-      <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-black via-red-950 to-black px-4 py-8">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-black via-red-950 to-black px-4 py-8">
         <div className="w-full max-w-md rounded-2xl border border-red-900/60 bg-black/40 p-6 shadow-2xl shadow-black/40">
           <h1 className="mb-2 text-2xl font-bold text-white">Utilities Locked</h1>
           <p className="mb-5 text-sm text-zinc-300">Enter the passcode to access the utilities panel.</p>
@@ -291,12 +291,12 @@ export default function Utilities() {
   }
 
   return (
-    <div className="flex flex-col min-h-full bg-gradient-to-br from-black via-red-950 to-black">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-black via-red-950 to-black">
       <div className="px-4 pt-4">
         <TopPageSelector currentPage="utilities" />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-8">
+      <div className="flex-1 px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold text-white mb-8">Utilities</h1>
 
