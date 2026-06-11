@@ -28,7 +28,7 @@ export function TopPageSelector({ currentPage }: TopPageSelectorProps) {
             href={link.href}
             className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] transition-colors ${
               isActive
-                ? "bg-red-500 text-white shadow-[0_8px_24px_rgba(239,68,68,0.35)]"
+                ? "bg-amber-800/80 text-amber-50 shadow-[0_8px_24px_rgba(120,72,36,0.45)] border border-amber-700/60"
                 : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
             }`}
             aria-current={isActive ? "page" : undefined}

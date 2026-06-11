@@ -100,7 +100,7 @@ function PriceSparkline({
   return (
     <div className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-2">
       <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest subtle mb-2">
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-red-400" />Low</span>
+        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-amber-600" />Low</span>
         <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-amber-300" />Median</span>
       </div>
       <svg viewBox="0 0 220 60" className="w-full h-[72px]" role="img" aria-label="Price trend sparkline chart">
@@ -108,7 +108,7 @@ function PriceSparkline({
         {lowPoints.length >= 2 && (
           <polyline
             fill="none"
-            stroke="rgb(248 113 113)"
+            stroke="rgb(180 108 66)"
             strokeWidth="2"
             points={pointsToPolyline(lowPoints)}
           />
@@ -251,7 +251,7 @@ export default function WishlistPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <span className="h-10 w-[3px] bg-red-500 rounded" />
+              <span className="h-10 w-[3px] bg-amber-700 rounded" />
               <p className="text-xs md:text-sm uppercase tracking-[0.35em] subtle">Hunt Mode</p>
             </div>
             <h1 className="hero-title">
@@ -286,7 +286,7 @@ export default function WishlistPage() {
                 <button
                   key={option.value}
                   onClick={() => setChartWindow(option.value)}
-                  className={`px-2 py-1 rounded ${chartWindow === option.value ? "bg-red-600 text-white" : "text-zinc-300"}`}
+                  className={`px-2 py-1 rounded ${chartWindow === option.value ? "bg-amber-700 text-white" : "text-zinc-300"}`}
                 >
                   {option.label}
                 </button>
@@ -294,7 +294,7 @@ export default function WishlistPage() {
             </div>
           </div>
         </div>
-        {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+        {error && <p className="text-xs text-amber-300 mt-2">{error}</p>}
         {trendMessage && <p className="text-xs subtle mt-2">{trendMessage}</p>}
       </div>
 

@@ -58,7 +58,7 @@ function StatList({ title, rows }: { title: string; rows: CountRow[] }) {
                   <span className="subtle">{row.count}</span>
                 </div>
                 <div className="mt-1 h-2 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden">
-                  <div className="h-full bg-red-500" style={{ width: `${pct}%` }} />
+                  <div className="h-full bg-amber-700" style={{ width: `${pct}%` }} />
                 </div>
               </li>
             );
@@ -137,7 +137,7 @@ export default function StatsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <span className="h-10 w-[3px] bg-red-500 rounded" />
+              <span className="h-10 w-[3px] bg-amber-700 rounded" />
               <p className="text-xs md:text-sm uppercase tracking-[0.35em] subtle">Collection Analytics</p>
             </div>
             <h1 className="hero-title">
@@ -153,7 +153,7 @@ export default function StatsPage() {
         {loading ? (
           <div className="subtle">Loading statistics...</div>
         ) : error ? (
-          <div className="text-red-400">Error: {error}</div>
+          <div className="text-amber-300">Error: {error}</div>
         ) : (
           <>
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">

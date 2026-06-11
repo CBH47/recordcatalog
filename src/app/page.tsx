@@ -25,7 +25,7 @@ export default function Home() {
     setError(null);
     const { data, error } = await supabase
       .from("records")
-      .select("id,title,discogs_id,genre:genres(name),subgenre:subgenres(name),cubby,order,on_my_wall,out_for_the_day,image_url,artists(name)")
+      .select("id,title,discogs_id,genre:genres(name),subgenre:subgenres(name),cubby,order,image_url,artists(name)")
       .order("cubby", { ascending: true })
       .order("order", { ascending: true });
     if (error) {
@@ -46,22 +46,6 @@ export default function Home() {
   useEffect(() => {
     fetchRecords();
   }, []);
-
-  const handleToggleWall = (id: number) => {
-    setRecords((prev) =>
-      prev.map((rec) =>
-        rec.id === id ? { ...rec, on_my_wall: !rec.on_my_wall } : rec
-      )
-    );
-  };
-
-  const handleToggleOut = (id: number) => {
-    setRecords((prev) =>
-      prev.map((rec) =>
-        rec.id === id ? { ...rec, out_for_the_day: !rec.out_for_the_day } : rec
-      )
-    );
-  };
 
   const handleCubbyChange = async (recordId: number, newCubby: number, newOrder?: number) => {
     // Optimistically update UI
@@ -186,7 +170,7 @@ export default function Home() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <span className="h-10 w-[3px] bg-red-500 rounded" />
+              <span className="h-10 w-[3px] bg-amber-700 rounded" />
               <p className="text-xs md:text-sm uppercase tracking-[0.35em] subtle">Your Vinyl Collection</p>
             </div>
             <h1 className="hero-title">
@@ -231,7 +215,7 @@ export default function Home() {
         {loading ? (
           <div className="subtle text-center py-12">Loading records...</div>
         ) : error ? (
-          <div className="text-red-400 text-center py-12">Error: {error}</div>
+          <div className="text-amber-300 text-center py-12">Error: {error}</div>
         ) : (
           <CubbyWall
             records={searchQuery
@@ -240,8 +224,6 @@ export default function Home() {
                   return r.title.toLowerCase().includes(q) || r.artists.some((a) => a.toLowerCase().includes(q)) || r.genre.toLowerCase().includes(q);
                 })
               : records}
-            onToggleWall={handleToggleWall}
-            onToggleOut={handleToggleOut}
             onCubbyChange={handleCubbyChange}
             onRecordClick={handleRecordClick}
           />
@@ -331,7 +313,7 @@ export default function Home() {
               )}
             </div>
             {discogsLoading && <div>Loading Discogs data...</div>}
-            {discogsData && discogsData.error && <div className="text-red-400">{discogsData.error}</div>}
+            {discogsData && discogsData.error && <div className="text-amber-300">{discogsData.error}</div>}
             {discogsData && !discogsData.error && (
               <div>
                 {discogsData.images && discogsData.images[0] && (
@@ -348,7 +330,7 @@ export default function Home() {
                     ))}
                   </ul>
                 </div>
-                <a href={discogsData.uri} target="_blank" rel="noopener noreferrer" className="text-red-300 underline">View on Discogs</a>
+                <a href={discogsData.uri} target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">View on Discogs</a>
               </div>
             )}
             {!discogsLoading && !discogsData && <div className="subtle">No Discogs data available.</div>}

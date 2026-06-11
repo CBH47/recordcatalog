@@ -69,7 +69,7 @@ export default function HistoryPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <span className="h-10 w-[3px] bg-red-500 rounded" />
+              <span className="h-10 w-[3px] bg-amber-700 rounded" />
               <p className="text-xs md:text-sm uppercase tracking-[0.35em] subtle">Playback Journal</p>
             </div>
             <h1 className="hero-title">

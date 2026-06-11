@@ -17,8 +17,6 @@ export interface Record {
 
 interface CubbyWallProps {
   records: Record[];
-  onToggleWall: (id: number) => void;
-  onToggleOut: (id: number) => void;
   onCubbyChange: (recordId: number, newCubby: number, newOrder?: number) => Promise<void>;
   onRecordClick: (record: Record) => void;
 }
@@ -32,8 +30,6 @@ interface CubbyGroup {
 
 export const CubbyWall: React.FC<CubbyWallProps> = ({
   records,
-  onToggleWall,
-  onToggleOut,
   onCubbyChange,
   onRecordClick,
 }) => {
@@ -200,7 +196,7 @@ export const CubbyWall: React.FC<CubbyWallProps> = ({
                 {/* Ghost/Preview Separator */}
                 {shouldShowPreview && (
                   <div
-                    className="absolute h-full w-1.5 bg-red-400 opacity-70 transition-all rounded animate-pulse"
+                    className="absolute h-full w-1.5 bg-amber-500/80 opacity-70 transition-all rounded animate-pulse"
                     style={{
                       transform: `translateX(${dragOffset > 0 ? 30 : -30}px)`,
                     }}
@@ -211,8 +207,8 @@ export const CubbyWall: React.FC<CubbyWallProps> = ({
                 <div
                   className={`h-full w-1 transition-all cursor-col-resize ${
                     isBeingDragged
-                      ? 'bg-red-500 w-1.5'
-                      : 'bg-gradient-to-b from-transparent via-zinc-600 to-transparent hover:via-red-500 hover:w-1.5'
+                      ? 'bg-amber-600 w-1.5'
+                      : 'bg-gradient-to-b from-transparent via-zinc-600 to-transparent hover:via-amber-600 hover:w-1.5'
                   }`}
                   style={{
                     transform: isBeingDragged ? `translateX(${dragOffset}px)` : 'translateX(0)',
@@ -223,7 +219,7 @@ export const CubbyWall: React.FC<CubbyWallProps> = ({
 
                 {/* Direction Indicator */}
                 {shouldShowPreview && (
-                  <div className="absolute -top-8 text-xs font-semibold text-red-300 pointer-events-none">
+                  <div className="absolute -top-8 text-xs font-semibold text-amber-300 pointer-events-none">
                     {direction === 'right' ? '→ Move right' : '← Move left'}
                   </div>
                 )}
@@ -244,8 +240,6 @@ export const CubbyWall: React.FC<CubbyWallProps> = ({
             >
               <RecordTile
                 record={record}
-                onToggleWall={() => onToggleWall(record.id)}
-                onToggleOut={() => onToggleOut(record.id)}
                 onClick={() => onRecordClick(record)}
                 onDragStart={(e) => handleRecordDragStart(e, record)}
               />
@@ -259,11 +253,9 @@ export const CubbyWall: React.FC<CubbyWallProps> = ({
 
 const RecordTile: React.FC<{
   record: Record;
-  onToggleWall: () => void;
-  onToggleOut: () => void;
   onClick: () => void;
   onDragStart: (e: React.DragEvent) => void;
-}> = ({ record, onToggleWall, onToggleOut, onClick, onDragStart }) => {
+}> = ({ record, onClick, onDragStart }) => {
   const imageSrc = record.image_url
     ? `/api/cover-proxy?src=${encodeURIComponent(record.image_url)}${record.discogs_id ? `&id=${encodeURIComponent(record.discogs_id)}` : ''}`
     : null;
@@ -277,7 +269,7 @@ const RecordTile: React.FC<{
     <div
       draggable
       onDragStart={onDragStart}
-      className="rounded-xl border border-zinc-800 bg-gradient-to-b from-zinc-900/95 to-zinc-950/95 p-2.5 flex flex-col items-center cursor-move hover:-translate-y-0.5 hover:border-red-400/40 hover:shadow-[0_14px_28px_rgba(0,0,0,0.35)] transition-all"
+      className="rounded-xl border border-zinc-800 bg-gradient-to-b from-zinc-900/95 to-zinc-950/95 p-2.5 flex flex-col items-center cursor-move hover:-translate-y-0.5 hover:border-amber-600/40 hover:shadow-[0_14px_28px_rgba(0,0,0,0.35)] transition-all"
       onClick={onClick}
     >
       {imageSrc ? (
@@ -311,30 +303,6 @@ const RecordTile: React.FC<{
           ))}
         </div>
       )}
-      <div className="flex gap-2 w-full justify-between">
-        <button
-          className={`text-xs px-2 py-1 rounded ${
-            record.on_my_wall ? 'bg-emerald-500 text-white' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleWall();
-          }}
-        >
-          Wall
-        </button>
-        <button
-          className={`text-xs px-2 py-1 rounded ${
-            record.out_for_the_day ? 'bg-red-500 text-white' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleOut();
-          }}
-        >
-          Out
-        </button>
-      </div>
     </div>
   );
 };

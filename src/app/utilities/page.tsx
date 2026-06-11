@@ -253,8 +253,8 @@ export default function Utilities() {
 
   if (!isUnlocked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-black via-red-950 to-black px-4 py-8">
-        <div className="w-full max-w-md rounded-2xl border border-red-900/60 bg-black/40 p-6 shadow-2xl shadow-black/40">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0f0b08] via-[#1a130f] to-[#0b0806] px-4 py-8">
+        <div className="w-full max-w-md rounded-2xl border border-amber-900/60 bg-black/40 p-6 shadow-2xl shadow-black/40">
           <h1 className="mb-2 text-2xl font-bold text-white">Utilities Locked</h1>
           <p className="mb-5 text-sm text-zinc-300">Enter the passcode to access the utilities panel.</p>
 
@@ -272,16 +272,16 @@ export default function Utilities() {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleUnlock();
             }}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white outline-none transition focus:border-red-500"
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white outline-none transition focus:border-amber-600"
             placeholder="Enter passcode"
           />
 
-          {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="mt-3 text-sm text-amber-300">{error}</p> : null}
 
           <button
             type="button"
             onClick={handleUnlock}
-            className="mt-5 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:bg-red-500"
+            className="mt-5 w-full rounded-lg bg-amber-700 px-4 py-2 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:bg-amber-600"
           >
             Unlock
           </button>
@@ -291,7 +291,7 @@ export default function Utilities() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-black via-red-950 to-black">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-[#0f0b08] via-[#1a130f] to-[#0b0806]">
       <div className="px-4 pt-4">
         <TopPageSelector currentPage="utilities" />
       </div>
