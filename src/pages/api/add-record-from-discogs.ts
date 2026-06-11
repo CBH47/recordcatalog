@@ -17,7 +17,7 @@ function normalizeArtistName(name: string) {
   return normalizeText(name).replace(/\s+\(\d+\)$/, '');
 }
 
-function getArtistSortKey(name: string) {
+function getArtistSortKey(name: string, isBand?: boolean) {
   const clean = normalizeArtistName(name).replace(/^The\s+/i, '');
   if (!clean) return '';
 
@@ -26,10 +26,20 @@ function getArtistSortKey(name: string) {
   }
 
   const words = clean.split(/\s+/).filter(Boolean);
-  const lower = clean.toLowerCase();
-  const bandHint = /(&|\band\b|\bband\b|\borchestra\b|\bensemble\b|\btrio\b|\bquartet\b|\bproject\b)/i.test(lower);
+  
+  // If we have explicit is_band flag from DB, use it. Otherwise fall back to pattern matching.
+  let isBandGroup = isBand;
+  if (isBand === undefined || isBand === null) {
+    const lower = clean.toLowerCase();
+    const bandKeywords = /(\&|\band\b|\bband\b|\borchestra\b|\bensemble\b|\btrio\b|\bquartet\b|\bproject\b|\bboys\b|\bgirls\b|\bbrothers\b|\bsisters\b|\bsons\b|\bdaughters\b)/i;
+    const hasBandKeyword = bandKeywords.test(lower);
+    const hasConjunction = /\s(and|&|\+|or)\s/i.test(lower);
+    const commonBandEndings = /\b(dead|floyd|police|genesis|journey|eagles|boston|chicago|phish|heads|stones|beetles|monkees|doors|cure|smiths|ramones|pistols|clash|sex|animals|byrds|hollies|seekers|cream|zeppelin|sabbath|maiden|priest|judas|guns|roses|skid|row|deep|purple|black|sabbath|smoke|water|fire|water)\b/i;
+    isBandGroup = hasBandKeyword || hasConjunction || (words.length >= 2 && commonBandEndings.test(lower));
+  }
 
-  if (!bandHint && words.length <= 3) {
+  // Only apply Last,First sorting to solo artists (not detected as bands)
+  if (!isBandGroup && words.length <= 3) {
     return words[words.length - 1].toLowerCase();
   }
 
@@ -79,33 +89,70 @@ async function getOrCreateSubgenreId(name: string | null, genreId: number | null
   return inserted.id;
 }
 
-async function getOrCreateArtistId(name: string) {
+async function getOrCreateArtistId(name: string, isBand: boolean | null = null) {
   const cleanName = normalizeText(name);
   if (!cleanName) return null;
 
   const { data: existing, error: existingError } = await supabase
     .from('artists')
-    .select('id')
+    .select('id,is_band')
     .eq('name', cleanName)
     .maybeSingle();
   if (existingError) throw new Error(`Artist lookup failed (${cleanName}): ${existingError.message}`);
-  if (existing?.id) return existing.id;
+  
+  if (existing?.id) {
+    // If we have new is_band info and the existing row doesn't have it, update it
+    if (isBand !== null && existing.is_band === null) {
+      const { error: updateError } = await supabase
+        .from('artists')
+        .update({ is_band: isBand })
+        .eq('id', existing.id);
+      if (updateError) throw new Error(`Artist update failed (${cleanName}): ${updateError.message}`);
+    }
+    return existing.id;
+  }
 
   const { data: inserted, error: insertError } = await supabase
     .from('artists')
-    .insert({ name: cleanName })
+    .insert({ name: cleanName, is_band: isBand })
     .select('id')
     .single();
   if (insertError) throw new Error(`Artist insert failed (${cleanName}): ${insertError.message}`);
   return inserted.id;
 }
 
-async function syncRecordArtists(recordId: number, artistNames: string[]) {
-  const normalized = Array.from(new Set((artistNames || []).map((n) => normalizeArtistName(n)).filter(Boolean)));
+async function fetchDiscogsArtistType(token: string, artistResourceUrl: string): Promise<boolean | null> {
+  try {
+    const url = `${artistResourceUrl}?token=${token}`;
+    const res = await discogsFetch(url, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        Accept: 'application/json',
+      },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // type: "Person" or "Group"
+    return data.type === 'Group';
+  } catch (err: any) {
+    // Silently fail - we'll fall back to pattern matching
+    return null;
+  }
+}
 
+async function syncRecordArtists(recordId: number, artistDataList: Array<{ name: string; resourceUrl?: string }>, token: string) {
   const artistIds: number[] = [];
-  for (const name of normalized) {
-    const artistId = await getOrCreateArtistId(name);
+  
+  for (const artistData of artistDataList) {
+    const name = normalizeArtistName(artistData.name);
+    if (!name) continue;
+    
+    let isBand: boolean | null = null;
+    if (artistData.resourceUrl && token) {
+      isBand = await fetchDiscogsArtistType(token, artistData.resourceUrl);
+    }
+    
+    const artistId = await getOrCreateArtistId(name, isBand);
     if (artistId) artistIds.push(artistId);
   }
 
@@ -125,15 +172,15 @@ async function syncRecordArtists(recordId: number, artistNames: string[]) {
 async function calculateOrderValue(genreName: string, artistNames: string[], title: string) {
   const { data: allRecords, error } = await supabase
     .from('records')
-    .select('id,title,order,genre:genres(name),artists(name)');
+    .select('id,title,order,genre:genres(name),artists(name,is_band)');
   if (error) throw new Error(`Failed to fetch records for order calculation: ${error.message}`);
 
-  const newArtistKey = (artistNames || []).map(getArtistSortKey).sort().join(', ');
+  const newArtistKey = (artistNames || []).map(name => getArtistSortKey(name)).sort().join(', ');
   const newKey = `${normalizeText(genreName).toLowerCase()}|||${newArtistKey}|||${normalizeText(title).toLowerCase()}`;
 
   const existing = (allRecords || []).map((rec: any) => {
     const recGenre = normalizeText(rec.genre?.name).toLowerCase();
-    const recArtists = (rec.artists || []).map((a: any) => getArtistSortKey(a.name)).sort().join(', ');
+    const recArtists = (rec.artists || []).map((a: any) => getArtistSortKey(a.name, a.is_band)).sort().join(', ');
     const recTitle = normalizeText(rec.title).toLowerCase();
     return {
       id: rec.id,
@@ -195,7 +242,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const release = await releaseRes.json();
 
     const title = normalizeText(release.title);
-    const artistNames = (release.artists || []).map((a: any) => normalizeArtistName(a?.name || '')).filter(Boolean);
+    const artistDataList: Array<{ name: string; resourceUrl?: string }> = (release.artists || []).map((a: any) => ({
+      name: normalizeArtistName(a?.name || ''),
+      resourceUrl: a?.resource_url || undefined,
+    })).filter((a: any) => a.name);
+    const artistNames = artistDataList.map((a) => a.name);
     const genreName = normalizeText((release.genres || [])[0] || '');
     const subgenreName = normalizeText((release.styles || [])[0] || '');
     const imageUrl = release?.images?.[0]?.uri || release?.thumb || null;
@@ -219,6 +270,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const payload: Record<string, unknown> = {
       title,
       genre_id: genreId,
+      discogs_genre_name: genreName || null,
       subgenre_id: subgenreId,
       cubby: normalizedCubby,
       discogs_id: String(release.id),
@@ -253,7 +305,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       recordId = inserted.id;
     }
 
-    await syncRecordArtists(recordId, artistNames);
+    await syncRecordArtists(recordId, artistDataList, token);
 
     return res.status(200).json({
       success: true,

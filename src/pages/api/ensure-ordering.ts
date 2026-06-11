@@ -14,7 +14,7 @@ function normalizeArtistName(name: string) {
   return normalizeText(name).replace(/\s+\(\d+\)$/, "");
 }
 
-function getArtistSortKey(name: string) {
+function getArtistSortKey(name: string, isBand?: boolean) {
   const clean = normalizeArtistName(name).replace(/^The\s+/i, "");
   if (!clean) return "";
 
@@ -23,10 +23,20 @@ function getArtistSortKey(name: string) {
   }
 
   const words = clean.split(/\s+/).filter(Boolean);
-  const lower = clean.toLowerCase();
-  const bandHint = /(\&|\band\b|\bband\b|\borchestra\b|\bensemble\b|\btrio\b|\bquartet\b|\bproject\b)/i.test(lower);
+  
+  // If we have explicit is_band flag from DB, use it. Otherwise fall back to pattern matching.
+  let isBandGroup = isBand;
+  if (isBand === undefined || isBand === null) {
+    const lower = clean.toLowerCase();
+    const bandKeywords = /(\&|\band\b|\bband\b|\borchestra\b|\bensemble\b|\btrio\b|\bquartet\b|\bproject\b|\bboys\b|\bgirls\b|\bbrothers\b|\bsisters\b|\bsons\b|\bdaughters\b)/i;
+    const hasBandKeyword = bandKeywords.test(lower);
+    const hasConjunction = /\s(and|&|\+|or)\s/i.test(lower);
+    const commonBandEndings = /\b(dead|floyd|police|genesis|journey|eagles|boston|chicago|phish|heads|stones|beetles|monkees|doors|cure|smiths|ramones|pistols|clash|sex|animals|byrds|hollies|seekers|cream|zeppelin|sabbath|maiden|priest|judas|guns|roses|skid|row|deep|purple|black|sabbath|smoke|water|fire|water)\b/i;
+    isBandGroup = hasBandKeyword || hasConjunction || (words.length >= 2 && commonBandEndings.test(lower));
+  }
 
-  if (!bandHint && words.length <= 3) {
+  // Only apply Last,First sorting to solo artists (not detected as bands)
+  if (!isBandGroup && words.length <= 3) {
     return words[words.length - 1].toLowerCase();
   }
 
@@ -84,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { data, error } = await supabase
       .from("records")
-      .select("id,title,order,cubby,genre:genres(name),artists(name)");
+      .select("id,title,order,cubby,genre:genres(name),artists(name,is_band)");
 
     if (error) {
       return res.status(400).json({ error: error.message });
@@ -93,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const sortable: SortRecord[] = (data || []).map((rec: any) => {
       const genre = normalizeText(rec.genre?.name).toLowerCase();
       const artistKey = (rec.artists || [])
-        .map((a: any) => getArtistSortKey(a.name || ""))
+        .map((a: any) => getArtistSortKey(a.name || "", a.is_band))
         .sort((a: string, b: string) => a.localeCompare(b))
         .join(", ");
       const title = normalizeText(rec.title).toLowerCase();

@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 type TopPageSelectorProps = {
-  currentPage: "wall" | "random" | "scanner" | "stats" | "wishlist" | "history";
+  currentPage: "wall" | "random" | "scanner" | "stats" | "wishlist" | "history" | "utilities";
 };
 
 const links = [
@@ -13,6 +13,7 @@ const links = [
   { key: "stats", href: "/stats", label: "Stats" },
   { key: "wishlist", href: "/wishlist", label: "Wishlist" },
   { key: "history", href: "/history", label: "History" },
+  { key: "utilities", href: "/utilities", label: "Utilities" },
 ] as const;
 
 export function TopPageSelector({ currentPage }: TopPageSelectorProps) {
