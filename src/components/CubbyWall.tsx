@@ -19,9 +19,6 @@ interface CubbyWallProps {
   records: Record[];
   onCubbyChange: (recordId: number, newCubby: number, newOrder?: number) => Promise<void>;
   onRecordClick: (record: Record) => void;
-  onQuickSetCubby: (record: Record) => Promise<void>;
-  onQuickSetGenre: (record: Record) => Promise<void>;
-  onSetArtistsBandFlag: (record: Record, isBand: boolean) => Promise<void>;
 }
 
 interface CubbyGroup {
@@ -35,14 +32,10 @@ export const CubbyWall: React.FC<CubbyWallProps> = ({
   records,
   onCubbyChange,
   onRecordClick,
-  onQuickSetCubby,
-  onQuickSetGenre,
-  onSetArtistsBandFlag,
 }) => {
   const [draggingSeparator, setDraggingSeparator] = useState<number | null>(null);
   const [dragRecord, setDragRecord] = useState<Record | null>(null);
   const [dragOffset, setDragOffset] = useState<number>(0);
-  const [openMenuRecordId, setOpenMenuRecordId] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartXRef = useRef<number>(0);
 
@@ -249,13 +242,6 @@ export const CubbyWall: React.FC<CubbyWallProps> = ({
                 record={record}
                 onClick={() => onRecordClick(record)}
                 onDragStart={(e) => handleRecordDragStart(e, record)}
-                menuOpen={openMenuRecordId === record.id}
-                onToggleMenu={() => setOpenMenuRecordId((prev) => (prev === record.id ? null : record.id))}
-                onCloseMenu={() => setOpenMenuRecordId(null)}
-                onQuickSetCubby={() => onQuickSetCubby(record)}
-                onQuickSetGenre={() => onQuickSetGenre(record)}
-                onSetBand={() => onSetArtistsBandFlag(record, true)}
-                onSetSolo={() => onSetArtistsBandFlag(record, false)}
               />
             </div>
           );
@@ -269,25 +255,7 @@ const RecordTile: React.FC<{
   record: Record;
   onClick: () => void;
   onDragStart: (e: React.DragEvent) => void;
-  menuOpen: boolean;
-  onToggleMenu: () => void;
-  onCloseMenu: () => void;
-  onQuickSetCubby: () => Promise<void>;
-  onQuickSetGenre: () => Promise<void>;
-  onSetBand: () => Promise<void>;
-  onSetSolo: () => Promise<void>;
-}> = ({
-  record,
-  onClick,
-  onDragStart,
-  menuOpen,
-  onToggleMenu,
-  onCloseMenu,
-  onQuickSetCubby,
-  onQuickSetGenre,
-  onSetBand,
-  onSetSolo,
-}) => {
+}> = ({ record, onClick, onDragStart }) => {
   const imageSrc = record.image_url
     ? `/api/cover-proxy?src=${encodeURIComponent(record.image_url)}${record.discogs_id ? `&id=${encodeURIComponent(record.discogs_id)}` : ''}`
     : null;
@@ -301,70 +269,9 @@ const RecordTile: React.FC<{
     <div
       draggable
       onDragStart={onDragStart}
-      className="relative rounded-xl border border-zinc-800 bg-gradient-to-b from-zinc-900/95 to-zinc-950/95 p-2.5 flex flex-col items-center cursor-move hover:-translate-y-0.5 hover:border-amber-600/40 hover:shadow-[0_14px_28px_rgba(0,0,0,0.35)] transition-all"
+      className="rounded-xl border border-zinc-800 bg-gradient-to-b from-zinc-900/95 to-zinc-950/95 p-2.5 flex flex-col items-center cursor-move hover:-translate-y-0.5 hover:border-amber-600/40 hover:shadow-[0_14px_28px_rgba(0,0,0,0.35)] transition-all"
       onClick={onClick}
     >
-      <button
-        type="button"
-        className="absolute right-2 top-2 z-10 rounded-md border border-zinc-700 bg-black/55 px-2 py-0.5 text-xs text-zinc-200 hover:border-amber-700 hover:text-amber-200"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggleMenu();
-        }}
-        aria-label="More actions"
-      >
-        ...
-      </button>
-
-      {menuOpen && (
-        <div
-          className="absolute right-2 top-9 z-20 min-w-[170px] rounded-lg border border-zinc-700 bg-zinc-950/95 p-1 shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={async () => {
-              await onQuickSetCubby();
-              onCloseMenu();
-            }}
-          >
-            Set cubby
-          </button>
-          <button
-            type="button"
-            className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={async () => {
-              await onQuickSetGenre();
-              onCloseMenu();
-            }}
-          >
-            Set genre
-          </button>
-          <button
-            type="button"
-            className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={async () => {
-              await onSetBand();
-              onCloseMenu();
-            }}
-          >
-            Mark artist(s) as band
-          </button>
-          <button
-            type="button"
-            className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={async () => {
-              await onSetSolo();
-              onCloseMenu();
-            }}
-          >
-            Mark artist(s) as solo
-          </button>
-        </div>
-      )}
-
       {imageSrc ? (
         <img
           src={imageSrc}

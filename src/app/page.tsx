@@ -11,13 +11,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record | null>(null);
+  const [showPopupMenu, setShowPopupMenu] = useState(false);
   const [discogsData, setDiscogsData] = useState<any | null>(null);
   const [discogsLoading, setDiscogsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [cubbyInput, setCubbyInput] = useState("");
-  const [cubbySaving, setCubbySaving] = useState(false);
-  const [genreInput, setGenreInput] = useState("");
-  const [genreSaving, setGenreSaving] = useState(false);
   const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
 
   const fetchRecords = async () => {
@@ -84,8 +81,7 @@ export default function Home() {
 
   const handleRecordClick = async (record: Record) => {
     setSelected(record);
-    setCubbyInput(record.cubby !== null && record.cubby !== undefined ? String(record.cubby) : "");
-    setGenreInput(record.genre || "");
+    setShowPopupMenu(false);
     setDiscogsData(null);
     if (record.discogs_id) {
       setDiscogsLoading(true);
@@ -97,70 +93,6 @@ export default function Home() {
         setDiscogsData({ error: 'Failed to fetch Discogs data' });
       }
       setDiscogsLoading(false);
-    }
-  };
-
-  const handleSaveModalCubby = async () => {
-    if (!selected) return;
-
-    const parsed = Number.parseInt(cubbyInput.trim(), 10);
-    if (Number.isNaN(parsed)) {
-      setOrderingMessage("Enter a valid cubby number.");
-      return;
-    }
-
-    setCubbySaving(true);
-    setOrderingMessage(null);
-
-    try {
-      const res = await fetch('/api/updateCubby', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId: selected.id, cubby: parsed }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to update cubby');
-      }
-
-      setRecords((prev) => prev.map((rec) => (rec.id === selected.id ? { ...rec, cubby: parsed } : rec)));
-      setSelected((prev) => (prev ? { ...prev, cubby: parsed } : prev));
-      setOrderingMessage(`Updated cubby to ${parsed}.`);
-    } catch (err: any) {
-      setOrderingMessage(err?.message || 'Failed to update cubby');
-    } finally {
-      setCubbySaving(false);
-    }
-  };
-
-  const handleSaveModalGenre = async () => {
-    if (!selected) return;
-
-    setGenreSaving(true);
-    setOrderingMessage(null);
-
-    try {
-      const res = await fetch('/api/updateRecordGenre', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId: selected.id, genre: genreInput }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to update genre');
-      }
-
-      const nextGenre = String(data?.genreName || '').trim();
-      setRecords((prev) => prev.map((rec) => (rec.id === selected.id ? { ...rec, genre: nextGenre } : rec)));
-      setSelected((prev) => (prev ? { ...prev, genre: nextGenre } : prev));
-      setGenreInput(nextGenre);
-      setOrderingMessage(nextGenre ? `Updated genre to ${nextGenre}.` : 'Cleared genre.');
-    } catch (err: any) {
-      setOrderingMessage(err?.message || 'Failed to update genre');
-    } finally {
-      setGenreSaving(false);
     }
   };
 
@@ -303,9 +235,6 @@ export default function Home() {
               : records}
             onCubbyChange={handleCubbyChange}
             onRecordClick={handleRecordClick}
-            onQuickSetCubby={handleQuickSetCubby}
-            onQuickSetGenre={handleQuickSetGenre}
-            onSetArtistsBandFlag={handleSetArtistsBandFlag}
           />
         )}
       </div>
@@ -315,47 +244,63 @@ export default function Home() {
         <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setSelected(null)}>
           <div className="panel p-6 max-w-lg w-full relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <button className="absolute top-2 right-2 subtle hover:text-white" onClick={() => setSelected(null)}>✕</button>
+            <button
+              type="button"
+              className="absolute right-10 top-2 rounded-md border border-zinc-700 bg-black/55 px-2 py-0.5 text-xs text-zinc-200 hover:border-amber-700 hover:text-amber-200"
+              onClick={() => setShowPopupMenu((prev) => !prev)}
+              aria-label="More actions"
+            >
+              ...
+            </button>
+            {showPopupMenu && (
+              <div className="absolute right-10 top-9 z-20 min-w-[190px] rounded-lg border border-zinc-700 bg-zinc-950/95 p-1 shadow-xl">
+                <button
+                  type="button"
+                  className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-800"
+                  onClick={async () => {
+                    await handleQuickSetCubby(selected);
+                    setShowPopupMenu(false);
+                  }}
+                >
+                  Set cubby
+                </button>
+                <button
+                  type="button"
+                  className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-800"
+                  onClick={async () => {
+                    await handleQuickSetGenre(selected);
+                    setShowPopupMenu(false);
+                  }}
+                >
+                  Set genre
+                </button>
+                <button
+                  type="button"
+                  className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-800"
+                  onClick={async () => {
+                    await handleSetArtistsBandFlag(selected, true);
+                    setShowPopupMenu(false);
+                  }}
+                >
+                  Mark artist(s) as band
+                </button>
+                <button
+                  type="button"
+                  className="block w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-800"
+                  onClick={async () => {
+                    await handleSetArtistsBandFlag(selected, false);
+                    setShowPopupMenu(false);
+                  }}
+                >
+                  Mark artist(s) as solo
+                </button>
+              </div>
+            )}
             <h2 className="text-xl font-bold mb-2">{selected.title}</h2>
             <div className="mb-2 subtle">{selected.artists?.join(", ")}</div>
             <div className="mb-2 text-xs subtle">{selected.genre}</div>
             <div className="mb-3 text-sm subtle">
               Cubby: {selected.cubby ?? "Unassigned"}
-            </div>
-            <div className="mb-4 flex items-end gap-2">
-              <div>
-                <label className="block text-xs subtle mb-1">Set cubby</label>
-                <input
-                  value={cubbyInput}
-                  onChange={(e) => setCubbyInput(e.target.value)}
-                  placeholder="e.g. 4"
-                  className="field w-28"
-                />
-              </div>
-              <button
-                onClick={handleSaveModalCubby}
-                disabled={cubbySaving}
-                className="btn btn-secondary"
-              >
-                {cubbySaving ? "Saving..." : "Save cubby"}
-              </button>
-            </div>
-            <div className="mb-4 flex items-end gap-2">
-              <div className="flex-1">
-                <label className="block text-xs subtle mb-1">Set genre</label>
-                <input
-                  value={genreInput}
-                  onChange={(e) => setGenreInput(e.target.value)}
-                  placeholder="e.g. Rock"
-                  className="field w-full"
-                />
-              </div>
-              <button
-                onClick={handleSaveModalGenre}
-                disabled={genreSaving}
-                className="btn btn-secondary"
-              >
-                {genreSaving ? "Saving..." : "Save genre"}
-              </button>
             </div>
             <div className="mb-3 flex flex-wrap gap-2">
               <button
