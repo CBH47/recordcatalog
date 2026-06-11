@@ -39,7 +39,7 @@ function getArtistSortKey(name: string, isBand?: boolean) {
     // 3+ word names are usually bands unless they match a strong person-name pattern.
     const hasSuffix = /\b(jr\.?|sr\.?|ii|iii|iv)\b/i.test(lower);
     const hasInitial = words.some((w) => /^[a-z]\.?$/i.test(w));
-    const personMiddleNames = new Set(['lee', 'marie', 'ann', 'anne', 'jean', 'ray', 'rae', 'jo']);
+    const personMiddleNames = new Set(['lee', 'marie', 'ann', 'anne', 'jean', 'ray', 'rae', 'jo', 'joe']);
     const looksLikeThreePartPerson = words.length === 3 && (hasInitial || personMiddleNames.has(words[1].toLowerCase()) || hasSuffix);
     const likelyBandByLength = words.length >= 3 && !looksLikeThreePartPerson;
 

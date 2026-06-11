@@ -167,7 +167,37 @@ export default function Home() {
         throw new Error(data?.error || 'Failed to update artist band flag');
       }
 
-      setOrderingMessage(`Updated ${data.updatedCount || 0} artist(s) to ${isBand ? 'band' : 'solo'}.`);
+      let styleByCubby = {};
+      try {
+        const styleRes = await fetch('/api/cubby-ordering-styles');
+        const styleData = await styleRes.json();
+        if (styleRes.ok && styleData?.styleByCubby && typeof styleData.styleByCubby === 'object') {
+          styleByCubby = styleData.styleByCubby;
+        }
+      } catch {
+        // fall back to default ordering styles if style fetch fails
+      }
+
+      let reordered = false;
+      try {
+        const orderRes = await fetch('/api/ensure-ordering', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apply: true, styleByCubby }),
+        });
+        reordered = orderRes.ok;
+      } catch {
+        reordered = false;
+      }
+
+      await fetchRecords();
+
+      const unmatched = Array.isArray(data?.unmatchedNames) ? data.unmatchedNames.length : 0;
+      const reorderSuffix = reordered ? ' Ordering refreshed.' : ' Could not auto-refresh ordering; run Check/Repair in Utilities.';
+      const unmatchedSuffix = unmatched > 0 ? ` ${unmatched} name(s) did not match existing artists.` : '';
+      setOrderingMessage(
+        `Updated ${data.updatedCount || 0} artist(s) to ${isBand ? 'band' : 'solo'}.${unmatchedSuffix}${reorderSuffix}`
+      );
     } catch (err: any) {
       setOrderingMessage(err?.message || 'Failed to update artist band flag');
     }
